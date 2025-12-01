@@ -24,6 +24,10 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => state.user !== null,
     loading: (state) => state.status === 'pending',
+
+    token(): string | null {
+      return authManager.getToken(); // this reads from localStorage
+    },
   },
 
   actions: {
@@ -33,8 +37,8 @@ export const useAuthStore = defineStore('auth', {
     },
 
     AUTH_SUCCESS(user: User | null) {
-      this.status = 'success';
       this.user = user;
+      this.status = 'success';
     },
 
     AUTH_ERROR(errors: AuthError[] | AuthError | string) {
@@ -93,6 +97,7 @@ export const useAuthStore = defineStore('auth', {
 
         // fetch user data after login
         const user = await authService.me();
+        // this.AUTH_SUCCESS(user);
         this.AUTH_SUCCESS(user);
         return user;
       } catch (error: unknown) {

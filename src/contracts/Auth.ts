@@ -1,3 +1,5 @@
+import { type UserStatusType } from '../types/UserStatus';
+
 export interface ApiToken {
   type: 'bearer';
   token: string;
@@ -31,4 +33,5 @@ export interface User {
   displayName: string;
   createdAt: string;
   updatedAt: string;
+  status: UserStatusType;
 }
