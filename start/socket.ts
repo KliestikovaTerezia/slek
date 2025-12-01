@@ -24,3 +24,8 @@ Ws.namespace('channels/:name')
   .on('getInvitations', 'MessageController.getInvitations')
   // .on("deleteChannel", "MessageController.deleteChannel"); 
   .on('checkBanStatus', 'MessageController.checkBanStatus')
+  .on('updateStatus', 'UserController.updateStatus')
+
+//NEJDE MI TO GLOBALNE POSLAT NA BACKEND
+// Ws.namespace('/')
+//   .on('updateStatus', 'UserController.updateStatus')
