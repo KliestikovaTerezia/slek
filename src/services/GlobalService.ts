@@ -3,6 +3,8 @@ import { SocketManager } from './SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import type { Invitation, InvitationWithUserId } from 'src/types/invitation';
 import { useAuthStore } from 'src/stores/auth';
+import { type UserStatusType } from 'src/types/UserStatus';
+// import { useStatusStore } from 'src/stores/status';
 
 class GlobalSocketService extends SocketManager {
   private subscribed = false;
@@ -10,12 +12,38 @@ class GlobalSocketService extends SocketManager {
 
   constructor() {
     super('/'); // Root namespace
+    this.socket.connect();
   }
 
   public boot(): this {
     this.subscribe();
-    this.socket.connect();
+    if (!this.socket.connected) {
+      console.log('[GlobalService] connecting socket...');
+      this.socket.connect();
+    }
     return this;
+  }
+
+  // 1️⃣ Emit na server – user zmenil svoj status
+  public updateStatus(newStatus: UserStatusType): void {
+    console.log('HelOOOOOOOOO');
+    try {
+      console.log('[Service] emitting updateStatus to server with:', newStatus);
+      this.socket.emit('updateStatus', {
+        status: newStatus,
+        userId: useAuthStore().user?.id,
+      });
+    } catch (err) {
+      console.error('Failed to emit updateStatus:', err);
+    }
+  }
+
+  // 2️⃣ Prijímanie eventov z backendu
+  public onStatusUpdated(
+    callback: (data: { userId: string | number; status: UserStatusType }) => void,
+  ): void {
+    this.socket.off('user:statusUpdated'); // zrušíme predchádzajúce listener-y
+    this.socket.on('user:statusUpdated', callback);
   }
 
   public subscribe(): void {
@@ -25,10 +53,21 @@ class GlobalSocketService extends SocketManager {
     }
     this.socket.on('connect', () => {
       console.log('Global socket CONNECTED');
-    });
 
-    this.socket.on('connect_error', (err) => {
-      console.error('Global socket CONNECT ERROR:', err);
+      const authStore = useAuthStore();
+      const token = authStore.token; // make sure you store JWT in authStore after login!
+
+      if (!token) {
+        console.error('No token found for socket auth');
+        return;
+      }
+
+      // Send Bearer token (this is what Adonis expects)
+      this.socket.emit('auth', {
+        token: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+      });
+
+      console.log('[GlobalService] Authenticated socket with Bearer token');
     });
 
     // Listen for invitations

@@ -9,7 +9,13 @@
           <div class="q-pa-md text-weight-bold text-body1">{{ userProfile.nickname }}</div>
           <div class="relative-position">
             <q-btn flat dense round aria-label="User" @click="toggleRightDrawer">
-              <ProfilePicture :avatar="uploadedAvatar" size="33px" bgColor="grey-4" />
+              <div class="relative-position">
+                <ProfilePicture :avatar="uploadedAvatar" size="33px" bgColor="grey-4" />
+                <div
+                  class="status-indicator q-ml-sm"
+                  :style="{ backgroundColor: myStatusObj.color }"
+                ></div>
+              </div>
             </q-btn>
             <q-badge v-if="notifications.length > 0" color="red" floating transparent>
               {{ notifications.length }}
@@ -55,7 +61,13 @@
         >
           <template v-slot:header>
             <q-item-section avatar>
-              <ProfilePicture :avatar="uploadedAvatar" size="40px" bgColor="grey-4" />
+              <div class="relative-position">
+                <ProfilePicture :avatar="uploadedAvatar" size="40px" bgColor="grey-4" />
+                <div
+                  class="status-indicator q-ml-sm"
+                  :style="{ backgroundColor: myStatusObj.color }"
+                ></div>
+              </div>
             </q-item-section>
             <q-item-section>
               {{ userProfile.firstName }} {{ userProfile.lastName }}
@@ -99,17 +111,16 @@
             </q-item>
           </q-list>
           <q-item>
-              <q-item-section>
-                <q-toggle
-                  v-model="notifyOnlyWhenTagged"
-                  label="Notify only when tagged"
-                  @update:model-value="handleNotifyToggle"
-                >
-                  <q-tooltip>Receive notifications only when mentioned or tagged</q-tooltip>
-                </q-toggle>
-              </q-item-section>
-            </q-item>
-
+            <q-item-section>
+              <q-toggle
+                v-model="notifyOnlyWhenTagged"
+                label="Notify only when tagged"
+                @update:model-value="handleNotifyToggle"
+              >
+                <q-tooltip>Receive notifications only when mentioned or tagged</q-tooltip>
+              </q-toggle>
+            </q-item-section>
+          </q-item>
         </q-menu>
 
         <q-item v-if="notifications.length > 0">
@@ -126,9 +137,21 @@
     <!-- STATUS DIALOG -->
     <q-dialog v-model="showStatusDialog">
       <q-card style="min-width: 300px">
-        <q-card-section><div class="text-h6">Set your status</div></q-card-section>
+        <q-card-section>
+          <div class="text-h6">Set your status</div>
+          <q-select
+            v-model="myStatus"
+            :options="[
+              { label: 'Online', value: 'online' },
+              { label: 'Do Not Disturb', value: 'dnd' },
+              { label: 'Offline', value: 'offline' },
+            ]"
+            label="Status"
+            emit-value
+          />
+        </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat color="primary" label="Save" v-close-popup />
+          <q-btn flat color="primary" label="Save" v-close-popup @click="updateStatus" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -146,13 +169,43 @@ import { useQuasar } from 'quasar';
 import ProfilePicture from '../components/ProfilePicture.vue';
 import { authManager } from 'src/services';
 import { api } from 'src/boot/axios';
-
 import { useAuthStore } from 'src/stores/auth';
+import { statusMap } from 'src/types/UserStatus';
+import GlobalSocketService from 'src/services/GlobalService';
+
+import { useStatusStore } from 'src/stores/status';
+
+const statusStore = useStatusStore();
+statusStore.init();
+
+const myStatus = computed({
+  get: () => statusStore.myStatus,
+  set: (value) => {
+    statusStore.myStatus = value; // len lokálna aktualizácia
+  },
+});
 
 const authStore = useAuthStore();
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
+
+// const initialStatusFromStore = authStore.user?.status;
+const myStatusObj = computed(() => {
+  const statusKey = myStatus.value;
+  return statusMap[statusKey] || statusMap.offline;
+});
+
+function updateStatus() {
+  if (!GlobalSocketService.socket.connected) {
+    console.warn('[UI] Socket not connected yet. Status not sent:', myStatus.value);
+    return;
+  }
+
+  console.log('[UI] updateStatus called, value =', myStatus.value);
+  statusStore.updateStatus(myStatus.value); // emit na server
+  showStatusDialog.value = false;
+}
 
 // RESPONSIVE DRAWER
 const drawerWidth = computed(() => ($q.screen.xs ? $q.screen.width : 350));
@@ -165,21 +218,24 @@ const uploadedAvatar = computed(() => {
   return authStore.user?.avatar || undefined;
 });
 const userProfile = computed(() => {
-  if (!authStore.user) {
+  if (!authStore.user)
     return {
-      //pre istotku
-      first_name: 'Guest',
-      last_name: '',
+      firstName: 'Guest',
+      lastName: '',
       nickname: 'Guest',
       email: '',
-      password: '',
+      avatar: null,
+      status: myStatus.value,
     };
-  }
+
   return {
+    id: authStore.user.id,
     firstName: authStore.user.firstName,
     lastName: authStore.user.lastName,
     nickname: authStore.user.nickname,
     email: authStore.user.email,
+    avatar: authStore.user.avatar,
+    status: myStatus.value, // <-- tu len berieme môj lokálny status
   };
 });
 
@@ -238,5 +294,15 @@ async function confirmLogout() {
 }
 .text-dark {
   color: #424242 !important;
+}
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 1;
 }
 </style>
