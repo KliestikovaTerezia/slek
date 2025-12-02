@@ -3,6 +3,8 @@ import { useChannelsStore } from 'src/stores/channels';
 import type { SerializedMessage } from 'src/contracts';
 import type { BootParams } from './SocketManager';
 import type { Invitation } from 'src/types/invitation';
+import notificationService from './NotificationService';
+import { useAuthStore } from 'src/stores/auth';
 
 export interface BanStatus {
   status: 'ok' | 'banned' | 'not_found';
@@ -118,6 +120,7 @@ export class ChannelSocketManager extends SocketManager {
 
     const channelStore = useChannelsStore();
     const channel = this.namespace.split('/').pop() as string;
+    const authStore = useAuthStore();
 
     this.socket.on('connect', () => {
       console.log('Socket CONNECTED:', this.namespace);
@@ -136,7 +139,29 @@ export class ChannelSocketManager extends SocketManager {
     this.socket.on('message', (msg: SerializedMessage) => {
       console.log('Received message:', msg);
       channelStore.newMessage(channel, msg);
+
+      const currentUser = authStore.user?.nickname;
+      const isMyMessage = msg.author.nickname === currentUser;
+
+      if (isMyMessage || !currentUser) return;
+
+      const notifyOnlyMentions = authStore.settings?.notifyOnlyMentions ?? false;
+      const isMentioned = msg.content.toLowerCase().includes(`@${currentUser.toLowerCase()}`);
+      const shouldNotify = notifyOnlyMentions ? isMentioned : true;
+
+      if (shouldNotify) {
+        const preview = msg.content.length > 80 ? msg.content.substring(0, 80) + '…' : msg.content;
+
+        void notificationService.showIfHidden({
+          title: `${msg.author.nickname} v #${channel}`,
+          body: preview,
+          icon: msg.author.avatar || '/icons/favicon-128x128.png',
+          tag: `msg-${msg.id}-${channel}`,
+          data: { channel, messageId: msg.id },
+        });
+      }
     });
+
     // Add BEFORE  this.subscribed = true;
     this.socket.off('members:update');
     this.socket.on('members:update', ({ channelId, members }) => {

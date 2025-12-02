@@ -31,6 +31,9 @@ export const useInvitationsStore = defineStore('invitations', {
       try {
         //TOTO ma topovat channel ale nejde to!
         const socket = channelService.join(invitation.channelName);
+        if (!socket.isJoined) {
+          await socket.joinChannel();
+        }
         await socket.acceptInvitation(invitation.id);
 
         const channelsStore = useChannelsStore();

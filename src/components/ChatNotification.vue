@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <transition name="slide">
     <div v-if="show" class="notification-container" @click="closeNotification">
       <q-avatar size="32px" class="q-mr-sm">
@@ -156,4 +156,4 @@ onUnmounted(() => {
   opacity: 1;
   transform: translateX(0);
 }
-</style>
+</style> -->
