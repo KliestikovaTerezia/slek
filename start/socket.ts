@@ -8,7 +8,6 @@
 */
 
 import Ws from '@ioc:Ruby184/Socket.IO/Ws'
-
 // this is dynamic namespace, in controller methods we can use params.name
 // start/wsKernel.ts
 Ws.namespace('channels/:name')
