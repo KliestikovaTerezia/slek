@@ -110,8 +110,14 @@
               <q-item-section>Statuses</q-item-section>
             </q-item>
           </q-list>
+
           <q-item>
             <q-item-section>
+              <q-toggle
+                v-model="notificationsEnabled"
+                label="Enable notifications"
+                @update:model-value="askForNotificationPermission"
+              />
               <q-toggle
                 v-model="notifyOnlyWhenTagged"
                 label="Notify only when tagged"
@@ -172,7 +178,7 @@ import { api } from 'src/boot/axios';
 import { useAuthStore } from 'src/stores/auth';
 import { statusMap } from 'src/types/UserStatus';
 import GlobalSocketService from 'src/services/GlobalService';
-
+import NotificationService from 'src/services/NotificationService';
 import { useStatusStore } from 'src/stores/status';
 
 const statusStore = useStatusStore();
@@ -184,6 +190,15 @@ const myStatus = computed({
     statusStore.myStatus = value; // len lokálna aktualizácia
   },
 });
+
+const askForNotificationPermission = async () => {
+  const granted = await NotificationService.requestPermission();
+  if (!granted) {
+    console.warn('Notifications not allowed by user');
+  }
+};
+
+const notificationsEnabled = ref(false);
 
 const authStore = useAuthStore();
 const $q = useQuasar();
@@ -239,7 +254,14 @@ const userProfile = computed(() => {
   };
 });
 
-const notifyOnlyWhenTagged = ref(false);
+// ked je tag zapnuty
+const notifyOnlyWhenTagged = computed({
+  get: () => authStore.settings?.notifyOnlyMentions ?? false,
+  set: (value: boolean) => {
+    authStore.saveSettings({ notifyOnlyMentions: value });
+  },
+});
+
 function handleNotifyToggle(value: boolean) {
   console.log('Notify only when tagged:', value);
 }

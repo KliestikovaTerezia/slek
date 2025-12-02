@@ -89,6 +89,7 @@
 import { reactive, ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from 'src/stores/auth';
+// import NotificationService from 'src/services/NotificationService';
 
 // Pinia store
 const authStore = useAuthStore();
@@ -123,10 +124,20 @@ const onForgotPassword = () => {
   console.log('Forgot password clicked — page not implemented yet');
 };
 
+// const askForNotificationPermission = async () => {
+//   const granted = await NotificationService.requestPermission();
+//   if (!granted) {
+//     console.warn('Notifications not allowed by user');
+//   }
+// };
+
 const errorMessage = ref('');
 const onSubmit = async () => {
   try {
     await authStore.login(credentials);
+
+    // await askForNotificationPermission();
+
     await router.push(redirectTo.value);
   } catch (err: unknown) {
     if (err instanceof Error) {

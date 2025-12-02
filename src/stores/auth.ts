@@ -8,10 +8,21 @@ export interface AuthError {
   field?: string;
 }
 
+export interface UserSettings {
+  notifyOnlyMentions: boolean; // true = len @mentions, false = všetky správy
+  notificationSound: boolean; // true = zvuk pri notifikácii
+}
+
+const DEFAULT_SETTINGS: UserSettings = {
+  notifyOnlyMentions: false,
+  notificationSound: false,
+};
+
 export interface AuthStateInterface {
   user: User | null;
   status: 'pending' | 'success' | 'error';
   errors: AuthError[];
+  settings: UserSettings;
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -19,6 +30,7 @@ export const useAuthStore = defineStore('auth', {
     user: null,
     status: 'pending',
     errors: [],
+    settings: { ...DEFAULT_SETTINGS },
   }),
 
   getters: {
@@ -48,6 +60,23 @@ export const useAuthStore = defineStore('auth', {
         : [{ message: typeof errors === 'string' ? errors : errors.message }];
     },
 
+    loadSettings() {
+      const stored = localStorage.getItem('user-settings');
+      if (stored) {
+        try {
+          this.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+        } catch (e) {
+          console.error('Failed to parse user settings:', e);
+          this.settings = { ...DEFAULT_SETTINGS };
+        }
+      }
+    },
+
+    saveSettings(settings: Partial<UserSettings>) {
+      this.settings = { ...this.settings, ...settings };
+      localStorage.setItem('user-settings', JSON.stringify(this.settings));
+    },
+
     /**
      * Check if user is logged in by fetching /auth/me
      */
@@ -62,6 +91,8 @@ export const useAuthStore = defineStore('auth', {
         const user = await authService.me();
         console.log('Auth store: User from /auth/me:', user); // ← Add this
         this.AUTH_SUCCESS(user);
+        this.loadSettings();
+
         return user !== null;
       } catch (error: unknown) {
         this.AUTH_ERROR((error as Error).message);
@@ -99,6 +130,7 @@ export const useAuthStore = defineStore('auth', {
         const user = await authService.me();
         // this.AUTH_SUCCESS(user);
         this.AUTH_SUCCESS(user);
+        this.loadSettings();
         return user;
       } catch (error: unknown) {
         this.AUTH_ERROR((error as Error).message);
@@ -115,6 +147,8 @@ export const useAuthStore = defineStore('auth', {
         await authService.logout();
         authManager.removeToken();
         this.AUTH_SUCCESS(null);
+        this.settings = { ...DEFAULT_SETTINGS };
+        localStorage.removeItem('user-settings');
       } catch (error: unknown) {
         this.AUTH_ERROR((error as Error).message);
         throw error;
