@@ -255,7 +255,7 @@
     </q-dialog> -->
 
     <q-dialog v-model="showInvitationsDialog">
-      <q-card style="min-width: 350px">
+      <q-card style="width: 350px">
         <q-card-section class="row justify-between items-center">
           <div class="text-h6">Invitations</div>
           <q-btn flat icon="close" v-close-popup></q-btn>
@@ -341,23 +341,12 @@
 
     <!-- pridaj/delete ludi z kanalov -->
     <q-dialog v-model="showAddPeopleDialog">
-      <q-card style="min-width: 400px">
+      <q-card style="width: 400px">
         <q-card-section class="row justify-between items-center">
           <div class="text-h6">Invite people to {{ activeChannel?.name }}</div>
           <q-btn flat icon="close" v-close-popup></q-btn>
         </q-card-section>
 
-        <!-- <q-card-section>
-          <q-select
-            v-model="selectedNicknames"
-            multiple
-            :options="users.map((f) => ({ label: f.name, value: f.id }))"
-            label="Select friends to add"
-            outlined
-            dense
-            use-chips
-          />
-        </q-card-section> -->
         <q-card-section>
           <div class="relative-position q-mt-md">
             <q-select
@@ -388,7 +377,7 @@
     </q-dialog>
 
     <q-dialog v-model="showRemovePeopleDialog">
-      <q-card style="min-width: 400px">
+      <q-card style="width: 400px">
         <q-card-section class="row justify-between items-center">
           <div class="text-h6">Remove people from {{ activeChannel?.name }}</div>
           <q-btn flat icon="close" v-close-popup></q-btn>
@@ -514,7 +503,7 @@
     </q-dialog>
 
     <q-dialog v-model="showKickPeopleDialog">
-      <q-card style="min-width: 400px">
+      <q-card style="width: 400px">
         <q-card-section class="row justify-between items-center">
           <div class="text-h6">Vote to kick from {{ activeChannel?.name }}</div>
           <q-btn flat icon="close" v-close-popup></q-btn>
@@ -1167,6 +1156,8 @@ const removePeopleFromChannel = async () => {
       console.error('Failed to remove users', err);
     }
   }
+  showRemovePeopleDialog.value = false;
+  selectedNicknames.value = [];
 };
 
 // to bude funkcia ktorou ulozime status usera na server- momentalne len zavrieme dialog
