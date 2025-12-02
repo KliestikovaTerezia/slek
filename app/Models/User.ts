@@ -12,6 +12,8 @@ import {
 import Channel from "App/Models/Channel";
 import Message from "App/Models/Message";
 
+export type UserStatusType = 'online' | 'dnd' | 'offline'
+
 export default class User extends BaseModel {
   @column({ isPrimary: true })
   public id: number
@@ -24,6 +26,9 @@ export default class User extends BaseModel {
 
   @column()
   public nickname: string 
+
+  @column()
+  public status: UserStatusType
 
   @column()
   public avatar: string | null
@@ -60,6 +65,7 @@ export default class User extends BaseModel {
       avatar: this.avatar,
       displayName: this.displayName,
       avatarUrl: this.avatarUrl,
+      status: this.status,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     }

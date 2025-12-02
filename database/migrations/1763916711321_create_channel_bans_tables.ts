@@ -10,9 +10,6 @@ export default class extends BaseSchema {
       table.integer('user_id').unsigned().references('users.id').onDelete('CASCADE')
       table.integer('banned_by').unsigned().references('users.id').onDelete('SET NULL').nullable()
       table.timestamp('created_at', { useTz: true })
-      
-      // One ban per user per channel
-      table.unique(['channel_id', 'user_id'])
     })
   }
 

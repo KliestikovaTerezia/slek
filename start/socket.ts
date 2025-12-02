@@ -8,7 +8,6 @@
 */
 
 import Ws from '@ioc:Ruby184/Socket.IO/Ws'
-
 // this is dynamic namespace, in controller methods we can use params.name
 // start/wsKernel.ts
 Ws.namespace('channels/:name')
@@ -24,3 +23,8 @@ Ws.namespace('channels/:name')
   .on('getInvitations', 'MessageController.getInvitations')
   // .on("deleteChannel", "MessageController.deleteChannel"); 
   .on('checkBanStatus', 'MessageController.checkBanStatus')
+  .on('updateStatus', 'UserController.updateStatus')
+
+//NEJDE MI TO GLOBALNE POSLAT NA BACKEND
+// Ws.namespace('/')
+//   .on('updateStatus', 'UserController.updateStatus')
