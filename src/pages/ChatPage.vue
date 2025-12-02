@@ -32,14 +32,14 @@
     <!-- Hlavna cast chatu -->
     <div class="column col bg-white">
       <div class="notification-positioner">
-        <ChatNotification
+        <!-- <ChatNotification
           v-if="showChatNotification"
           :sender-name="notificationData.senderName"
           :sender-avatar="notificationData.senderAvatar"
           :message="notificationData.message"
           :duration="4000"
           @close="handleNotificationClose"
-        />
+        /> -->
       </div>
       <!-- hlavna chatova cast -->
       <div class="row col">
@@ -550,7 +550,7 @@
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import ProfilePicture from '../components/ProfilePicture.vue';
-import ChatNotification from '../components/ChatNotification.vue';
+// import ChatNotification from '../components/ChatNotification.vue';
 import ChannelListSide from '../components/ChannelListSide.vue';
 import type { QScrollArea } from 'quasar';
 import type { Channel } from 'src/types/channel';
@@ -1179,26 +1179,26 @@ const newMessage = ref('');
 const systemMessage = ref('');
 
 // notifikacia data
-interface NotificationData {
-  senderName: string;
-  senderAvatar: string;
-  message: string;
-}
+// interface NotificationData {
+//   senderName: string;
+//   senderAvatar: string;
+//   message: string;
+// }
 
-const showChatNotification = ref(false);
-const notificationData = ref<NotificationData>({
-  senderName: 'Katka',
-  senderAvatar: 'https://cdn.quasar.dev/img/avatar2.jpg',
-  message: 'Ahoj pocuj ako mam spravit toto??',
-});
+// const showChatNotification = ref(false);
+// const notificationData = ref<NotificationData>({
+//   senderName: 'Katka',
+//   senderAvatar: 'https://cdn.quasar.dev/img/avatar2.jpg',
+//   message: 'Ahoj pocuj ako mam spravit toto??',
+// });
 
-const triggerChatNotification = () => {
-  showChatNotification.value = true;
-};
+// const triggerChatNotification = () => {
+//   showChatNotification.value = true;
+// };
 
-const handleNotificationClose = () => {
-  showChatNotification.value = false;
-};
+// const handleNotificationClose = () => {
+//   showChatNotification.value = false;
+// };
 
 // spustame fixne notifikaciu pri kazdom reloadnuti stranky
 // onMounted(async () => {
@@ -1294,7 +1294,7 @@ onMounted(async () => {
     console.error('Init failed:', err);
   }
 
-  triggerChatNotification();
+  // triggerChatNotification();
 });
 
 // Po zmene kanála

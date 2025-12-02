@@ -45,7 +45,8 @@ export default defineConfig((ctx) => {
       // publicPath: '/',
       vueRouterMode: 'history', // available values: 'hash', 'history'
       env: {
-        API_URL: process.env.API_URL || (ctx.dev ? 'http://localhost:3333' : 'https://prod.api.com')
+        API_URL:
+          process.env.API_URL || (ctx.dev ? 'http://localhost:3333' : 'https://prod.api.com'),
       },
       // webpackTranspile: false,
 
@@ -101,7 +102,7 @@ export default defineConfig((ctx) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: [],
+      plugins: ['AppVisibility', 'Notify'],
     },
 
     // animations: 'all', // --- includes all animations
