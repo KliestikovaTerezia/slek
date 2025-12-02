@@ -310,7 +310,7 @@
               dense
               class="q-mt-md"
               hint="Press Enter after each nickname"
-              @new-value="validateNickname"
+              @new-value="checkUnique"
             />
             <div v-if="invalidNicknamesError" class="text-negative text-caption q-mt-xs q-pl-sm">
               {{ invalidNicknamesError }}
@@ -347,7 +347,7 @@
           <q-btn flat icon="close" v-close-popup></q-btn>
         </q-card-section>
 
-        <q-card-section>
+        <!-- <q-card-section>
           <q-select
             v-model="selectedNicknames"
             multiple
@@ -357,6 +357,27 @@
             dense
             use-chips
           />
+        </q-card-section> -->
+        <q-card-section>
+          <div class="relative-position q-mt-md">
+            <q-select
+              v-model="selectedNicknames"
+              multiple
+              use-input
+              use-chips
+              input-debounce="0"
+              new-value-mode="add-unique"
+              label="Invite people (type nicknames)"
+              outlined
+              dense
+              class="q-mt-md"
+              hint="Press Enter after each nickname"
+              @new-value="checkUnique"
+            />
+            <div v-if="invalidNicknamesError" class="text-negative text-caption q-mt-xs q-pl-sm">
+              {{ invalidNicknamesError }}
+            </div>
+          </div>
         </q-card-section>
 
         <q-card-actions align="right">
@@ -382,6 +403,8 @@
             outlined
             dense
             use-chips
+            emit-value
+            map-options
           />
         </q-card-section>
 
@@ -506,6 +529,8 @@
             outlined
             dense
             use-chips
+            emit-value
+            map-options
           />
           <div class="text-caption text-grey-7 q-mt-sm">
             3 votes needed to ban a member permanently
@@ -651,7 +676,7 @@ const showMembersDialog = ref(false);
 const newChannelName = ref('');
 const selectedNicknames = ref<string[]>([]);
 
-const validateNickname = (
+const checkUnique = (
   val: string,
   done: (item?: string, mode?: 'toggle' | 'add' | 'add-unique') => void,
 ) => {
@@ -779,16 +804,6 @@ const canKickPeople = computed(() => {
   return activeChannel.value.type === 'public' && !activeChannel.value.isAdmin;
 });
 
-const showKickPeopleDialog = ref(false);
-
-const kickPeopleFromChannel = () => {
-  if (!activeChannel.value) return;
-  // TODO: Implement kick voting logic
-  systemMessage.value = 'Kick voting will be implemented with /kick command';
-  showKickPeopleDialog.value = false;
-  selectedNicknames.value = [];
-};
-
 const invitationsStore = useInvitationsStore();
 const invitationCount = computed(() => invitationsStore.count);
 const invitations = computed(() => invitationsStore.list);
@@ -873,12 +888,11 @@ const createChannel = async () => {
       await socket.joinChannel();
       systemMessage.value = `Created channel ${response.data.name}`;
       //and here will be a for loop that will send invites to all nicknames in selected nicknames
-      for (const nickname of selectedNicknames.value) {
-        try {
-          await socket.inviteUsers([nickname]);
-        } catch (err) {
-          console.error(`Failed to invite ${nickname}`, err);
-        }
+      try {
+        await socket.inviteUsers(selectedNicknames.value);
+        console.log('Sending invites to', selectedNicknames.value);
+      } catch (err) {
+        console.error(`Failed to invite users`, err);
       }
     } catch (err) {
       systemMessage.value = 'Failed to create channel';
@@ -1046,26 +1060,113 @@ const confirmDeleteChannel = async () => {
 };
 
 const getChannelMembers = () => {
-  return channelMembers.value.map((m) => ({
-    label: m.name,
-    value: m.id,
-  }));
+  const myId = authStore.user?.id;
+  return channelMembers.value
+    .filter((m) => m.id !== myId) // <-- skryjem seba
+    .map((m) => ({
+      label: m.name,
+      value: m.name,
+    }));
 };
 
-const addPeopleToChannel = () => {
+const showKickPeopleDialog = ref(false);
+
+const kickPeopleFromChannel = async () => {
+  if (!activeChannel.value) return;
+
+  const nicknamesToKick = selectedNicknames.value.map((n) => n);
+  console.log('Nickname to kick', nicknamesToKick);
+
+  for (const nickname of nicknamesToKick) {
+    try {
+      const response = await api.post(`/api/channels/${activeChannel.value.id}/kick`, { nickname });
+
+      // Server normálne vráti text ako pri commande
+      systemMessage.value = response.data.message;
+
+      // Ak už bol permanentne zabanovaný
+      if (response.data.banned) {
+        await channelsStore.fetchChannels();
+      }
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { error?: string } } };
+      systemMessage.value = axiosError.response?.data?.error || `Failed to kick ${nickname}`;
+    }
+  }
+
+  showKickPeopleDialog.value = false;
+  selectedNicknames.value = [];
+};
+
+const addPeopleToChannel = async () => {
   if (!activeChannel.value) return;
   // TODO: Call backend API to add people
   // await api.post(`/api/channels/${activeChannel.value.id}/members`, { userIds: selectedFriends.value })
+
+  invalidNicknamesError.value = '';
+
+  const myNickname = authStore.user?.nickname; //nech sa neinvituje sam seba
+  if (myNickname && selectedNicknames.value.includes(myNickname)) {
+    invalidNicknamesError.value = 'You cannot invite yourself';
+    return;
+  }
+
+  // VALIDATE NICKNAMES FIRST
+  if (selectedNicknames.value.length > 0) {
+    try {
+      const response = await api.post('/auth/validate-nicknames', {
+        nicknames: selectedNicknames.value,
+      });
+
+      const invalidNicknames = response.data.invalidNicknames;
+      if (invalidNicknames && invalidNicknames.length > 0) {
+        invalidNicknamesError.value = `These users don't exist: ${invalidNicknames.join(', ')}`;
+        return; // Stop here, don't create channel
+      }
+    } catch (err) {
+      console.error('Failed to validate nicknames:', err);
+      invalidNicknamesError.value = 'Failed to validate nicknames';
+      return;
+    }
+  }
+
+  const socket = channelService.in(activeChannel.value.name);
+  if (!socket) {
+    console.error('No socket connected to this channel!');
+    return;
+  }
+
+  try {
+    await socket.inviteUsers(selectedNicknames.value);
+    console.log('Sending invites to', selectedNicknames.value);
+  } catch (err) {
+    console.error('Failed to invite users', err);
+  }
   showAddPeopleDialog.value = false;
   selectedNicknames.value = [];
 };
 
-const removePeopleFromChannel = () => {
+const removePeopleFromChannel = async () => {
   if (!activeChannel.value) return;
-  // TODO: Call backend API to remove people
-  // await api.delete(`/api/channels/${activeChannel.value.id}/members`, { data: { userIds: selectedFriends.value }})
-  showRemovePeopleDialog.value = false;
-  selectedNicknames.value = [];
+  if (selectedNicknames.value.length === 0) return;
+
+  const nicknamesToKick = selectedNicknames.value.map((n) => n);
+  console.log('Nickname to kick', nicknamesToKick);
+
+  for (const nickname of nicknamesToKick) {
+    const socket = channelService.in(activeChannel.value.name);
+    if (!socket) {
+      console.error('No socket connected to this channel!');
+      return;
+    }
+
+    try {
+      await socket.revokeUser(nickname);
+      console.log('Removed user', nickname);
+    } catch (err) {
+      console.error('Failed to remove users', err);
+    }
+  }
 };
 
 // to bude funkcia ktorou ulozime status usera na server- momentalne len zavrieme dialog

@@ -23,7 +23,7 @@ export const useStatusStore = defineStore('status', {
 
       const authStore = useAuthStore();
       if (authStore.user?.status) {
-        this.myStatus = authStore.user.status || 'offline';
+        this.myStatus = authStore.user.status || 'online';
       }
 
       //
