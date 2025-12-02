@@ -4,7 +4,6 @@ import { useChannelsStore } from 'src/stores/channels';
 import type { Invitation, InvitationWithUserId } from 'src/types/invitation';
 import { useAuthStore } from 'src/stores/auth';
 import { type UserStatusType } from 'src/types/UserStatus';
-// import { useStatusStore } from 'src/stores/status';
 
 class GlobalSocketService extends SocketManager {
   private subscribed = false;

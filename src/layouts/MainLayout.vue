@@ -149,7 +149,7 @@
             v-model="myStatus"
             :options="[
               { label: 'Online', value: 'online' },
-              { label: 'Do Not Disturb', value: 'dnd' },
+              // { label: 'Do Not Disturb', value: 'dnd' },
               { label: 'Offline', value: 'offline' },
             ]"
             label="Status"
@@ -180,6 +180,7 @@ import { statusMap } from 'src/types/UserStatus';
 import GlobalSocketService from 'src/services/GlobalService';
 import NotificationService from 'src/services/NotificationService';
 import { useStatusStore } from 'src/stores/status';
+import { SocketManager } from 'src/services/SocketManager';
 
 const statusStore = useStatusStore();
 statusStore.init();
@@ -187,7 +188,8 @@ statusStore.init();
 const myStatus = computed({
   get: () => statusStore.myStatus,
   set: (value) => {
-    statusStore.myStatus = value; // len lokálna aktualizácia
+    // 1. Lokálna aktualizácia (Pinia store) - TERAZ JE SPRÁVNE
+    statusStore.setMyStatus(value);
   },
 });
 
@@ -212,13 +214,34 @@ const myStatusObj = computed(() => {
 });
 
 function updateStatus() {
-  if (!GlobalSocketService.socket.connected) {
-    console.warn('[UI] Socket not connected yet. Status not sent:', myStatus.value);
-    return;
-  }
+  // Ak je status 'online', setter to detekuje a zavolá GlobalSocketService.connect()
+  // Ak je status 'offline', setter to detekuje a zavolá GlobalSocketService.disconnect()
 
-  console.log('[UI] updateStatus called, value =', myStatus.value);
-  statusStore.updateStatus(myStatus.value); // emit na server
+  // Všetko riadi setter, takže stačí zavrieť dialóg.
+  console.log('[UI] Final status set via dialog:', myStatus.value);
+  showStatusDialog.value = false;
+
+  // Dôležité: Ak by ste chceli, aby sa status EMITOVAL na server aj po uložení
+  // (napr. pre prípad, že bol status už online a vy len potvrdzujete),
+  // musíte tu pridať:
+  // if (myStatus.value === 'online' && GlobalSocketService.socket.connected) {
+  //   statusStore.updateStatus('online'); // Emitujeme 'online' (ak sme už pripojení)
+  // }    // 2. 🚨 RIADENIE PRIPOJENIA (logika ostáva rovnaká)
+  if (myStatus.value === 'offline') {
+    console.log('[Socket Control] Status set to Offline. Disconnecting socket.');
+    //odpoji vsetky osobitne kanaly okrem root
+    SocketManager.destroyAllInstances('/');
+    //teraz root
+    GlobalSocketService.socket.disconnect();
+  } else if (myStatus.value === 'online') {
+    if (!GlobalSocketService.socket.connected) {
+      console.log('[Socket Control] Status set to Online. Connecting socket.');
+      GlobalSocketService.socket.connect();
+    } else {
+      // Ak sme už pripojení, emitujeme 'online'
+      statusStore.updateStatus('online');
+    }
+  }
   showStatusDialog.value = false;
 }
 
@@ -265,6 +288,8 @@ const notifyOnlyWhenTagged = computed({
 function handleNotifyToggle(value: boolean) {
   console.log('Notify only when tagged:', value);
 }
+
+//DO NOT DISTURB
 
 // SHOW ELEMENTS ONLY ON CHAT PAGE
 const isChatPage = computed(() => route.path === '/channels');

@@ -550,6 +550,7 @@ import type { Invitation } from 'src/types/invitation';
 // backend
 import { api } from 'src/boot/axios';
 import { useChannelsStore } from 'src/stores/channels';
+import { useStatusStore } from 'src/stores/status';
 
 type UserStatus = 'online' | 'dnd' | 'offline';
 
@@ -1678,7 +1679,24 @@ const sendMessage = async () => {
 
     // At this point we KNOW we have an active channel → safe to use
     const channelName = activeChannel.value.name;
-    const socket = channelService.in(channelName) ?? channelService.join(channelName);
+
+    const statusStore = useStatusStore();
+    if (statusStore.myStatus === 'offline') {
+      systemMessage.value = 'Cannot send message: You are currently offline.';
+      newMessage.value = '';
+
+      // Môžete pridať logiku pre uloženie správy lokálne/do fronty
+
+      return;
+    }
+
+    const socket = channelService.in(channelName);
+    if (!socket) {
+      // Ak by channelService.in(channelName) vrátilo null (čo by nemalo)
+      systemMessage.value = 'Channel connection not initialized. Please try reloading.';
+      newMessage.value = '';
+      return;
+    }
 
     const tempId = Date.now();
     const store = useChannelsStore();

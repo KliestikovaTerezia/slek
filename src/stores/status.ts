@@ -42,16 +42,21 @@ export const useStatusStore = defineStore('status', {
       const authStore = useAuthStore();
       if (!authStore.user) return;
 
-      // Optimistická aktualizácia UI/store
-      this.myStatus = newStatus;
-      authStore.user.status = newStatus;
+      // 1. Zmena stavu lokálne (UI)
+      this.myStatus = newStatus; // Zmenené z myStatus.value na this.myStatus
+      // Odstránené: authStore.user.status = newStatus; (už neukladáme do DB)
 
-      try {
-        console.log('[Store] emitting updateStatus to server with:', newStatus);
-        GlobalSocketService.updateStatus(newStatus); // <-- toto je správne
-      } catch (err) {
-        console.error('Failed to emit updateStatus:', err);
+      // 2. Emitovanie na server (EMITUJEME IBA AK NIE SME OFFLINE)
+      if (newStatus === 'online') {
+        if (GlobalSocketService.socket.connected) {
+          console.log('[Store] emitting updateStatus to server with:', newStatus);
+          GlobalSocketService.updateStatus(newStatus);
+        }
       }
+    },
+
+    setMyStatus(newStatus: UserStatusType) {
+      this.myStatus = newStatus;
     },
   },
 });
