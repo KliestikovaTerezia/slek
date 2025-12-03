@@ -647,6 +647,13 @@ const scrollToBottom = async () => {
 
 const selectChannel = async (ch: Channel) => {
   channelsStore.setActive(ch.name);
+
+  const statusStore = useStatusStore();
+  if (statusStore.myStatus === 'offline') {
+    systemMessage.value = 'You have to be online to join this channel';
+    return;
+  }
+
   const socket = channelService.join(ch.name);
 
   if (socket.isJoined) {

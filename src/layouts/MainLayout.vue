@@ -219,11 +219,11 @@ function updateStatus() {
   //   statusStore.updateStatus('online'); // Emitujeme 'online' (ak sme už pripojení)
   // }    // 2. 🚨 RIADENIE PRIPOJENIA (logika ostáva rovnaká)
   if (myStatus.value === 'offline') {
-    console.log('[Socket Control] Status set to Offline. Disconnecting socket.');
+    console.log('[Socket Control] Status set to Offline. Disconnecting MANAGER main socket.');
     //odpoji vsetky osobitne kanaly okrem root
-    SocketManager.destroyAllInstances('/');
+    SocketManager.disconnectManager();
     //teraz root
-    GlobalSocketService.socket.disconnect();
+    // GlobalSocketService.socket.disconnect();
   } else if (myStatus.value === 'online') {
     if (!GlobalSocketService.socket.connected) {
       console.log('[Socket Control] Status set to Online. Connecting socket.');
