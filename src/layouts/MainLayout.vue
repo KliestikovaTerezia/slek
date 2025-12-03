@@ -113,10 +113,10 @@
 
           <q-item>
             <q-item-section>
-              <q-toggle
-                v-model="notificationsEnabled"
+              <q-btn
                 label="Enable notifications"
-                @update:model-value="askForNotificationPermission"
+                @click="askForNotificationPermission"
+                :disable="notificationPermission === 'granted'"
               />
               <q-toggle
                 v-model="notifyOnlyWhenTagged"
@@ -193,15 +193,6 @@ const myStatus = computed({
   },
 });
 
-const askForNotificationPermission = async () => {
-  const granted = await NotificationService.requestPermission();
-  if (!granted) {
-    console.warn('Notifications not allowed by user');
-  }
-};
-
-const notificationsEnabled = ref(false);
-
 const authStore = useAuthStore();
 const $q = useQuasar();
 const router = useRouter();
@@ -210,7 +201,7 @@ const route = useRoute();
 // const initialStatusFromStore = authStore.user?.status;
 const myStatusObj = computed(() => {
   const statusKey = myStatus.value;
-  return statusMap[statusKey] || statusMap.offline;
+  return statusMap[statusKey] || statusMap.online;
 });
 
 function updateStatus() {
@@ -276,6 +267,16 @@ const userProfile = computed(() => {
     status: myStatus.value, // <-- tu len berieme môj lokálny status
   };
 });
+
+const notificationPermission = ref(Notification.permission);
+
+const askForNotificationPermission = async () => {
+  const granted = await NotificationService.requestPermission();
+  notificationPermission.value = Notification.permission;
+  if (!granted) {
+    console.warn('Notifications not allowed by user');
+  }
+};
 
 // ked je tag zapnuty
 const notifyOnlyWhenTagged = computed({

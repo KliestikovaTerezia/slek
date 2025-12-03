@@ -220,6 +220,7 @@
                 input-class="command-input"
                 outlined
                 dense
+                maxlength="1000"
                 class="col"
                 @keyup.enter="sendMessage"
               />

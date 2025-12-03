@@ -6,7 +6,7 @@ import { statusMap } from 'src/types/UserStatus';
 
 export const useStatusStore = defineStore('status', {
   state: () => ({
-    myStatus: 'offline' as UserStatusType,
+    myStatus: 'online' as UserStatusType,
     initialized: false,
   }),
 
