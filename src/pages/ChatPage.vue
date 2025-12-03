@@ -31,16 +31,6 @@
 
     <!-- Hlavna cast chatu -->
     <div class="column col bg-white">
-      <div class="notification-positioner">
-        <!-- <ChatNotification
-          v-if="showChatNotification"
-          :sender-name="notificationData.senderName"
-          :sender-avatar="notificationData.senderAvatar"
-          :message="notificationData.message"
-          :duration="4000"
-          @close="handleNotificationClose"
-        /> -->
-      </div>
       <!-- hlavna chatova cast -->
       <div class="row col">
         <!-- pouzijeme nas komponenet ChannelListSide -->
@@ -231,30 +221,6 @@
       </div>
     </div>
 
-    <!-- dialogy -->
-    <!-- <q-dialog v-model="showAddFriendDialog">
-      <q-card style="min-width: 300px;">
-        <q-card-section>
-          <div class="text-h6">Add new friend</div>
-        </q-card-section>
-
-        <q-card-section>
-          <q-input
-            v-model="newFriendName"
-            label="Friend name"
-            outlined
-            dense
-            autofocus
-          />
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="black" v-close-popup />
-          <q-btn flat label="Add" color="primary" @click="addFriend" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog> -->
-
     <q-dialog v-model="showInvitationsDialog">
       <q-card style="width: 350px">
         <q-card-section class="row justify-between items-center">
@@ -404,34 +370,6 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
-    <!-- Dialog pre nastavenie statusu usera -->
-    <!-- <q-dialog v-model="showStatusDialog">
-      <q-card style="min-width: 300px">
-        <q-card-section class="row justify-between items-center">
-          <div class="text-h6">Set your status</div>
-          <q-btn flat icon="close" v-close-popup></q-btn>
-        </q-card-section>
-
-        <q-card-section>
-          <q-select
-            v-model="userStatus"
-            :options="statusOptions"
-            option-value="value"
-            option-label="label"
-            label="Status"
-            outlined
-            dense
-          />
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="black" v-close-popup />
-          <q-btn flat label="Save" color="primary" @click="saveUserStatus" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog> -->
-
     <!-- Dialog pre zoznam členov kanála -->
     <q-dialog v-model="showMembersDialog">
       <q-card style="min-width: 300px">
@@ -600,16 +538,6 @@ const iconSize = computed(() => {
   return 'sm';
 });
 
-// Status options
-// const statusOptions = [
-//   { label: 'Online', value: 'online' as const },
-//   { label: 'Do Not Disturb', value: 'dnd' as const },
-//   { label: 'Offline', value: 'offline' as const },
-// ];
-
-// Aktuálny stav používateľa
-// const userStatus = ref<UserStatus>('online');
-
 // zobrazenie channel a friends listu
 const showChannels = ref(true);
 const showFriends = ref(false);
@@ -646,51 +574,29 @@ const getUserByName = (name: string): User => {
 
 const newChannelType = ref<'public' | 'private'>('public');
 
-// const invitations = ref<Invitation[]>([{ id: 1, from: 'Tomas', channel: 'Developers' }]);
-
-// const invitationCount = computed(() => invitations.value.length);
-
 const channelsStore = useChannelsStore();
 const currentMessages = computed(() => {
   if (!activeChannel.value) return [];
   return channelsStore.messages[activeChannel.value.name] || [];
 });
 
-// const showAddFriendDialog = ref(false);
 const showInvitationsDialog = ref(false);
 const showCreateChannelDialog = ref(false);
 const showAddPeopleDialog = ref(false);
 const showRemovePeopleDialog = ref(false);
-// const showStatusDialog = ref(false);
 const showMembersDialog = ref(false);
-// const newFriendName = ref('');
 const newChannelName = ref('');
 const selectedNicknames = ref<string[]>([]);
 
 const checkUnique = (
+  //chekuje ci je chips unique
   val: string,
   done: (item?: string, mode?: 'toggle' | 'add' | 'add-unique') => void,
 ) => {
-  // Just add the nickname - we'll validate on backend
   if (val.length > 0) {
     done(val, 'add-unique');
   }
 };
-
-// const dummyMessages = Array.from({ length: 40 }, (_, i) => ({
-//   id: i + 1,
-//   user: i % 2 === 0 ? 'You' : 'Maggie',
-//   text: i % 2 === 0 ? `Tvoja správa ${i + 1}` : `Maggie odpoveď ${i + 1}`,
-// }));
-
-// const dummy_chat = channels.value.find((f) => f.name === 'General');
-// if (dummy_chat) dummy_chat.messages = dummyMessages;
-
-// Definícia channelMembers
-// const channelMembers = computed(() => {
-//   if (!activeChannel.value?.members) return [];
-//   return users.value.filter(f => activeChannel.value!.members!.includes(f.id));
-// });
 
 // tu je efektivny scroll
 const isLoadingMore = ref(false);
@@ -782,9 +688,6 @@ const canInvitePeople = computed(() => {
 
 const canRemovePeople = computed(() => {
   if (!activeChannel.value) return false;
-
-  // Public channels: anyone can remove? Or only admin? (decide your rule)
-  // For now, let's say only admin can remove from any channel
   return activeChannel.value.isAdmin;
 });
 
@@ -878,7 +781,6 @@ const createChannel = async () => {
     try {
       await socket.joinChannel();
       systemMessage.value = `Created channel ${response.data.name}`;
-      //and here will be a for loop that will send invites to all nicknames in selected nicknames
       try {
         await socket.inviteUsers(selectedNicknames.value);
         console.log('Sending invites to', selectedNicknames.value);
@@ -922,44 +824,6 @@ const leaveChannel = () => {
   showLeaveConfirm.value = true;
 };
 
-// const confirmLeaveChannel = async () => {
-//   if (!channelToLeave.value) return;
-
-//   const channelName = channelToLeave.value.name;
-//   // const channelId = channelToLeave.value.id;
-//   const memberCount = channelToLeave.value.members?.length || 0;
-
-//   try {
-//     // NAJPRV WebSocket leave (aby backend emitol member:left)
-//     const socket = channelService.in(channelName);
-//     if (socket) {
-//       await socket.leaveChannel(); // ← volá backend leaveChannel cez WS
-//     }
-
-//     // POTOM HTTP leave (pre istotu, ak WS zlyhá)
-//     // await api.post(`/api/channels/${channelId}/leave`);
-
-//     // ✅ Refresh channel list (natiahne aktuálne dáta z backendu)
-//     await channelsStore.fetchChannels();
-
-//     // Clear active channel
-//     channelsStore.setActive(channelsStore.channelsList[0]?.name || '');
-
-//     // Check if user was the last member
-//     if (memberCount <= 1) {
-//       systemMessage.value = `You were the last member. Channel "${channelName}" has been deleted.`;
-//     } else {
-//       systemMessage.value = `Left channel "${channelName}"`;
-//     }
-//   } catch (error) {
-//     console.error('Failed to leave channel:', error);
-//     systemMessage.value = 'Failed to leave channel';
-//   } finally {
-//     showLeaveConfirm.value = false;
-//     channelToLeave.value = null;
-//   }
-// };
-
 const confirmLeaveChannel = async () => {
   if (!channelToLeave.value) return;
 
@@ -967,9 +831,9 @@ const confirmLeaveChannel = async () => {
   const socket = channelService.in(channelName);
 
   try {
-    // VŽDY choď cez WebSocket – aj v private!
+    // VŽDY choď cez WebSocket – aj v private
     if (socket && socket.isJoined) {
-      await socket.leaveChannel(); // ← toto je kľúčové
+      await socket.leaveChannel();
     } else {
       // Ak z nejakého dôvodu nie je pripojený – pripoj sa a odíď
       const tempSocket = channelService.join(channelName);
@@ -979,9 +843,6 @@ const confirmLeaveChannel = async () => {
       await tempSocket.joinChannel();
       await tempSocket.leaveChannel();
     }
-
-    // HTTP leave už nepotrebuješ vôbec (ani pre posledného člena)
-    // Backend to vyrieši v leaveChannel() – ak je posledný → zmaže kanál
 
     await channelsStore.fetchChannels(); // len refresh zoznamu
     channelsStore.setActive(channelsStore.channelsList[0]?.name ?? '');
@@ -1053,7 +914,7 @@ const confirmDeleteChannel = async () => {
 const getChannelMembers = () => {
   const myId = authStore.user?.id;
   return channelMembers.value
-    .filter((m) => m.id !== myId) // <-- skryjem seba
+    .filter((m) => m.id !== myId) // skryjem seba
     .map((m) => ({
       label: m.name,
       value: m.name,
@@ -1091,9 +952,6 @@ const kickPeopleFromChannel = async () => {
 
 const addPeopleToChannel = async () => {
   if (!activeChannel.value) return;
-  // TODO: Call backend API to add people
-  // await api.post(`/api/channels/${activeChannel.value.id}/members`, { userIds: selectedFriends.value })
-
   invalidNicknamesError.value = '';
 
   const myNickname = authStore.user?.nickname; //nech sa neinvituje sam seba
@@ -1162,93 +1020,12 @@ const removePeopleFromChannel = async () => {
   selectedNicknames.value = [];
 };
 
-// to bude funkcia ktorou ulozime status usera na server- momentalne len zavrieme dialog
-// const saveUserStatus = () => {
-//   showStatusDialog.value = false;
-// };
-
 // CLI fixne
 const newMessage = ref('');
 const systemMessage = ref('');
 
-// notifikacia data
-// interface NotificationData {
-//   senderName: string;
-//   senderAvatar: string;
-//   message: string;
-// }
-
-// const showChatNotification = ref(false);
-// const notificationData = ref<NotificationData>({
-//   senderName: 'Katka',
-//   senderAvatar: 'https://cdn.quasar.dev/img/avatar2.jpg',
-//   message: 'Ahoj pocuj ako mam spravit toto??',
-// });
-
-// const triggerChatNotification = () => {
-//   showChatNotification.value = true;
-// };
-
-// const handleNotificationClose = () => {
-//   showChatNotification.value = false;
-// };
-
-// spustame fixne notifikaciu pri kazdom reloadnuti stranky
-// onMounted(async () => {
-
-//   await invitationsStore.loadInitial();
-
-//   // Počúvaj nové pozvánky v reálnom čase
-//   window.addEventListener('invitation:received', ((e: CustomEvent<Invitation>) => {
-//     invitationsStore.add(e.detail);
-//   }) as EventListener);
-
-//   window.addEventListener('user:removed', ((e: CustomEvent) => {
-//     const { channelName, removedBy } = e.detail;
-//     systemMessage.value = `You were removed from ${channelName} by ${removedBy}`;
-
-//     // Refresh channels
-//     channelsStore.fetchChannels();
-//   }) as EventListener);
-
-//   window.addEventListener('unhandledrejection', (event) => {
-//     console.error('🔴🔴🔴 UNHANDLED REJECTION 🔴🔴🔴');
-//     console.error('Reason:', event.reason);
-//     console.error('Stack:', event.reason?.stack);
-//     console.error('Promise:', event.promise);
-//   });
-
-//   try {
-//     await authStore.check();
-//     await fetchUsers();
-//     await channelsStore.fetchChannels();
-
-//     // Ak máš uložený posledný kanál (napr. v localStorage), obnov ho
-//     const lastChannelName = localStorage.getItem('lastActiveChannel');
-//     console.log('Last active channel from storage:', lastChannelName);
-//     const lastChannelExists =
-//       lastChannelName && channelsStore.channelsList.some((ch) => ch.name === lastChannelName);
-
-//     if (lastChannelExists) {
-//       channelsStore.setActive(lastChannelName); // ← toto je kľúčové!
-//     } else if (channelsStore.channelsList.length > 0) {
-//       // Ak nemá uložený, alebo bol zmazaný → choď na prvý
-//       channelsStore.setActive(channelsStore.channelsList[0].name);
-//     }
-
-//     // znova sa pripoj do kanala, toto uz nahra aj spravy:
-//     await channelsStore.rejoinActiveChannel();
-//   } catch (err) {
-//     console.error('Init failed:', err);
-//   }
-
-//   triggerChatNotification();
-// });
-
 onMounted(async () => {
-  // setGlobalStores(channelsStore);
-
-  // ✅ Register stores globally for socket access
+  // Register stores globally for socket access
   await invitationsStore.loadInitial();
 
   // Počúvaj nové pozvánky v reálnom čase
@@ -1260,7 +1037,7 @@ onMounted(async () => {
     const { channelName, removedBy } = e.detail;
     systemMessage.value = `You were removed from ${channelName} by ${removedBy}`;
 
-    // ✅ Refresh channels - AWAIT or use void
+    // Refresh channels - AWAIT or use void
     void channelsStore.fetchChannels();
   }) as EventListener);
 
@@ -1286,8 +1063,6 @@ onMounted(async () => {
   } catch (err) {
     console.error('Init failed:', err);
   }
-
-  // triggerChatNotification();
 });
 
 // Po zmene kanála
@@ -1313,7 +1088,7 @@ watch(
 watch(showCreateChannelDialog, (newVal) => {
   if (!newVal) {
     newChannelName.value = '';
-    selectedNicknames.value = []; // ← Reset nicknames
+    selectedNicknames.value = []; //  Reset nicknames
     newChannelType.value = 'public';
     invalidNicknamesError.value = '';
   }
@@ -1322,12 +1097,6 @@ watch(showCreateChannelDialog, (newVal) => {
 watch(selectedNicknames, () => {
   invalidNicknamesError.value = '';
 });
-// aby sa nam input na pridanie friend resetoval po kliknuti na cencel alebo mimo dialogu
-// watch(showAddFriendDialog,(newVal) => {
-//   if (!newVal) {
-//     newFriendName.value = ''
-//   }}
-// )
 
 import { useAuthStore } from 'src/stores/auth';
 import type { DisplayMessage } from 'src/types/message';
@@ -1521,10 +1290,6 @@ const sendMessage = async () => {
           channelToLeave.value = activeChannel.value;
           await confirmLeaveChannel();
         }
-
-        // Refresh channel list aby sa zobrazil update
-        // await channelsStore.fetchChannels();
-
         return;
       } else if (command === 'quit') {
         if (!activeChannel.value) {
@@ -1678,7 +1443,7 @@ const sendMessage = async () => {
       return;
     }
 
-    // At this point we KNOW we have an active channel → safe to use
+    // At this point we KNOW we have an active channel - safe to use
     const channelName = activeChannel.value.name;
 
     const statusStore = useStatusStore();
@@ -1818,16 +1583,6 @@ const sendMessage = async () => {
 }
 .status-offline {
   background-color: #9e9e9e;
-}
-.notification-wrapper {
-  position: relative;
-  min-height: 80px;
-}
-.notification-positioner {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
 }
 .friends-list-content {
   z-index: 1;
