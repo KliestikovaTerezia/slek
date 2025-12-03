@@ -1,7 +1,10 @@
-import { SocketManager } from './SocketManager';
+import {
+  SocketManager,
+  type BootParams,
+  type SocketManagerConstructorContract,
+} from './SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import type { SerializedMessage } from 'src/contracts';
-import type { BootParams } from './SocketManager';
 import type { Invitation } from 'src/types/invitation';
 import notificationService from './NotificationService';
 import { useAuthStore } from 'src/stores/auth';
@@ -110,6 +113,22 @@ export class ChannelSocketManager extends SocketManager {
 
   public async getInvitations(): Promise<Invitation[]> {
     return this.emitAsync('getInvitations');
+  }
+
+  public destroy(): void {
+    (this.constructor as SocketManagerConstructorContract).destroyInstance(this);
+
+    // 🚨 KĽÚČOVÉ RIEŠENIE: Prístup k singletonu cez dynamický import (ktorý rieši cykly)
+    // Aj keď je to v tom istom súbore, toto je najspoľahlivejší mechanizmus
+    // v modernom JS/TS pri mixovaní inštancií.
+    import('./ChannelService')
+      .then((module) => {
+        // module.default je vaša singleton inštancia new ChannelService()
+        module.default.removeInstance(this.namespace);
+      })
+      .catch((err) => {
+        console.error('Failed to remove channel instance during destroy:', err);
+      });
   }
 
   public subscribe(): void {
@@ -277,6 +296,14 @@ class ChannelService {
 
     socket.destroy();
     return this.channels.delete(normalized);
+  }
+  public removeInstance(namespace: string): void {
+    const name = namespace.split('/').pop() as string;
+    const normalized = this.normalize(name);
+
+    // Predpokladáme, že sa to volá po disconnect(), takže len vymažeme z mapy
+    this.channels.delete(normalized);
+    console.log(`[ChannelService] Removed instance for ${normalized} from map.`);
   }
 }
 
