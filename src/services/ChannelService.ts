@@ -14,6 +14,10 @@ export interface BanStatus {
   message?: string;
 }
 
+export interface LoadMessagesOptions {
+  sinceId?: number;
+}
+
 export class ChannelSocketManager extends SocketManager {
   private subscribed = false;
   public isJoined = false;
@@ -250,9 +254,9 @@ export class ChannelSocketManager extends SocketManager {
     return result;
   }
 
-  public async loadMessages(): Promise<SerializedMessage[]> {
-    console.log('Loading messages from:', this.namespace);
-    return this.emitAsync('loadMessages');
+  public async loadMessages(options?: LoadMessagesOptions): Promise<SerializedMessage[]> {
+    // ✅ Používame typ, ktorý je definovaný a importovaný
+    return this.emitAsync<SerializedMessage[]>('loadMessages', options || {});
   }
 
   public async addMessage(content: string): Promise<SerializedMessage> {

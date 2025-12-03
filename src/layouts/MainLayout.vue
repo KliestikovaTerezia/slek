@@ -181,7 +181,10 @@ import GlobalSocketService from 'src/services/GlobalService';
 import NotificationService from 'src/services/NotificationService';
 import { useStatusStore } from 'src/stores/status';
 import { SocketManager } from 'src/services/SocketManager';
+import { useChannelsStore } from 'src/stores/channels';
 
+// ...
+const channelsStore = useChannelsStore();
 const statusStore = useStatusStore();
 statusStore.init();
 
@@ -228,6 +231,7 @@ function updateStatus() {
     if (!GlobalSocketService.socket.connected) {
       console.log('[Socket Control] Status set to Online. Connecting socket.');
       GlobalSocketService.socket.connect();
+      void channelsStore.loadMissedMessagesForAll();
     } else {
       // Ak sme už pripojení, emitujeme 'online'
       statusStore.updateStatus('online');

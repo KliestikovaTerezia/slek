@@ -27,6 +27,9 @@ export const useChannelsStore = defineStore('channels', {
     messages: {} as Record<string, DisplayMessage[]>,
     active: null as string | null,
     channelsList: [] as ChannelData[],
+
+    // Ukladanie ID poslednej správy, ktorú klient spracoval
+    lastProcessedMessageId: {} as Record<string, number>,
   }),
 
   getters: {
@@ -47,6 +50,10 @@ export const useChannelsStore = defineStore('channels', {
     activeChannelMembers(state) {
       const channel = state.channelsList.find((ch) => ch.name === state.active);
       return channel?.members || [];
+    },
+    lastProcessedIdOf: (state) => (channel: string) => {
+      // Vráti ID alebo 0, ak nebola spracovaná žiadna správa (0 je dobrý začiatok pre server)
+      return state.lastProcessedMessageId[channel] || 0;
     },
   },
 
@@ -109,6 +116,28 @@ export const useChannelsStore = defineStore('channels', {
         return [];
       }
     },
+    //nacita spravy ktore prichadzali pocas offline, nevideli sme ich
+    async loadMissedMessagesForAll() {
+      for (const channelName of this.joinedChannels) {
+        try {
+          const socket = channelService.join(channelName);
+          if (!socket) continue;
+
+          // Získanie posledného známeho ID (musí byť implementovaný getter/state!)
+          const sinceId = this.lastProcessedIdOf(channelName);
+
+          console.log(`[Catch-up] Načítavam správy pre ${channelName} od ID: ${sinceId}`);
+
+          // Získanie chýbajúcich správ zo servera
+          const newMessages = await socket.loadMessages({ sinceId });
+
+          // Spracovanie a uloženie nových správ
+          newMessages.forEach((m) => this.newMessage(channelName, m));
+        } catch (error) {
+          console.error(`Chyba pri načítaní zmeškaných správ pre ${channelName}:`, error);
+        }
+      }
+    },
 
     // Odpojenie z channel
     leave(channel: string | null) {
@@ -157,6 +186,10 @@ export const useChannelsStore = defineStore('channels', {
       const isMentioned = mentionRegex.test(message.content);
 
       const user = message.author.nickname;
+
+      if (message.id > (this.lastProcessedMessageId[channel] || 0)) {
+        this.lastProcessedMessageId[channel] = message.id;
+      }
 
       this.messages[channel].push({
         id: message.id,
