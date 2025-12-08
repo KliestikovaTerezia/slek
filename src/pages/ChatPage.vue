@@ -647,17 +647,17 @@ const scrollToBottom = async () => {
 
 const selectChannel = async (ch: Channel) => {
   channelsStore.setActive(ch.name);
+  const socket = channelService.join(ch.name);
 
+  const hasMessages = channelsStore.messages[ch.name]?.length > 0;
   const statusStore = useStatusStore();
   if (statusStore.myStatus === 'offline') {
     systemMessage.value = 'You have to be online to join this channel';
     return;
   }
 
-  const socket = channelService.join(ch.name);
-
   if (socket.isJoined) {
-    if (!channelsStore.messages[ch.name]?.length) {
+    if (!hasMessages) {
       const messages = await socket.loadMessages();
       messages.forEach((m) => channelsStore.newMessage(ch.name, m));
     }
@@ -715,6 +715,20 @@ const openInvitations = () => {
 
 const acceptInvite = async (invitation: Invitation) => {
   await invitationsStore.accept(invitation);
+
+  const channelName = invitation.channelName;
+  channelsStore.setActive(channelName);
+
+  // Načítaj históriu – nový člen ju ešte nemá
+  const socket = channelService.join(channelName);
+  if (!socket.isJoined) await socket.joinChannel();
+
+  const messages = await socket.loadMessages();
+  messages.forEach((m) => channelsStore.newMessage(channelName, m));
+
+  await nextTick();
+  await scrollToBottom();
+
   showInvitationsDialog.value = false;
 };
 
