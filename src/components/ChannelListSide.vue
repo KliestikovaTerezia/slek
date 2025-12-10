@@ -15,7 +15,7 @@
       </q-item-label>
 
       <!-- Vytvorenie channelu -->
-      <q-item clickable @click="emit('openCreateChannelDialog')" class="row">
+      <q-item clickable :disable="isOffline" @click="emit('openCreateChannelDialog')" class="row">
         <q-item-section>Create Channel</q-item-section>
         <q-item-section avatar>
           <q-icon name="add" color="primary" />
@@ -71,7 +71,7 @@
       </q-item-label>
 
       <!-- Vytvorenie channelu -->
-      <q-item clickable @click="emit('openCreateChannelDialog')" class="row">
+      <q-item clickable :disable="isOffline" @click="emit('openCreateChannelDialog')" class="row">
         <q-item-section>Create Channel</q-item-section>
         <q-item-section avatar>
           <q-icon name="add" color="primary" />
@@ -100,8 +100,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import type { Channel } from 'src/types/channel';
+import { useStatusStore } from 'src/stores/status';
+
+const statusStore = useStatusStore();
 
 const props = defineProps<{
   showChannels: boolean;
@@ -109,6 +112,8 @@ const props = defineProps<{
   channels: Channel[];
   activeChannel: Channel | null;
 }>();
+
+const isOffline = computed(() => statusStore.myStatus === 'offline');
 
 const emit = defineEmits<{
   (e: 'update:showChannels', value: boolean): void;
