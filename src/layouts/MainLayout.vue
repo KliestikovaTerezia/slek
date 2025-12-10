@@ -70,7 +70,18 @@
               </div>
             </q-item-section>
             <q-item-section>
-              {{ userProfile.firstName }} {{ userProfile.lastName }}
+              <q-item-label>
+                <div class="row items-center no-wrap">
+                  <span class="q-mr-sm">
+                    {{ userProfile.firstName }} {{ userProfile.lastName }}
+                  </span>
+
+                  <!-- Only show emoji when Do Not Disturb is active -->
+                  <span v-if="doNotDisturb" class="text-body1">
+                    {{ profileEmoji }}
+                  </span>
+                </div>
+              </q-item-label>
             </q-item-section>
           </template>
 
@@ -105,19 +116,16 @@
           self="top middle"
           :offset="[0, 8]"
         >
-          <q-list style="min-width: 150px">
-            <q-item clickable v-close-popup @click="showStatusDialog = true">
-              <q-item-section>Statuses</q-item-section>
-            </q-item>
-          </q-list>
-
+          <!-- do not disturb, statuses, notifications -->
           <q-item>
             <q-item-section>
-              <q-btn
-                label="Enable notifications"
-                @click="askForNotificationPermission"
-                :disable="notificationPermission === 'granted'"
-              />
+              <q-toggle
+                v-model="doNotDisturb"
+                label="Do not disturb"
+                @update:model-value="handleDoNotDisturbToggle"
+              >
+                <q-tooltip>Let others know you don't want to be disturbed</q-tooltip>
+              </q-toggle>
               <q-toggle
                 v-model="notifyOnlyWhenTagged"
                 label="Notify only when tagged"
@@ -125,6 +133,12 @@
               >
                 <q-tooltip>Receive notifications only when mentioned or tagged</q-tooltip>
               </q-toggle>
+              <q-btn label="Change status" @click="showStatusDialog = true" />
+              <q-btn
+                label="Enable notifications"
+                @click="askForNotificationPermission"
+                :disable="notificationPermission === 'granted'"
+              />
             </q-item-section>
           </q-item>
         </q-menu>
@@ -184,6 +198,8 @@ import { SocketManager } from 'src/services/SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import ChannelService from 'src/services/ChannelService';
 
+//do not disturb
+const doNotDisturb = ref(false);
 // ...
 const channelsStore = useChannelsStore();
 const statusStore = useStatusStore();
@@ -207,6 +223,26 @@ const myStatusObj = computed(() => {
   const statusKey = myStatus.value;
   return statusMap[statusKey] || statusMap.online;
 });
+
+const handleDoNotDisturbToggle = async (newValue: boolean) => {
+  doNotDisturb.value = newValue;
+  console.log('Do Not Disturb toggled:', newValue);
+
+  // Broadcast via ChannelService
+  let general = ChannelService.in('general');
+  if (!general) {
+    general = ChannelService.join('general');
+  }
+
+  try {
+    await general.updateDnd(newValue);
+    console.log('DND updated via socket:', newValue);
+  } catch (err) {
+    console.error('Failed to update DND:', err);
+  }
+};
+
+const profileEmoji = computed(() => (doNotDisturb.value ? '🏖️' : ''));
 
 const updateStatus = async () => {
   console.log('[UI] Final status set via dialog:', myStatus.value);

@@ -123,6 +123,10 @@ export class ChannelSocketManager extends SocketManager {
     }
   }
 
+  public async updateDnd(dnd: boolean) {
+    return this.emitAsync('updateDnd', { dnd });
+  }
+
   public async acceptInvitation(invitationId: number): Promise<{
     success: true;
     channel: {
