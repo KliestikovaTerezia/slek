@@ -257,6 +257,27 @@ export default class MessageController {
     return { message: `Channel "${channelName}" deleted` }
   }
   
+public async updateStatus(
+  { auth, socket }: WsContextContract,
+  payload: { status: "online" | "offline" | "dnd"; userId?: number } // type môže byť objekt
+) {
+  const user = auth.user!;
+  console.log('[Server] updateStatus called for user:', user.email, 'payload:', payload);
+
+  const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
+  
+  Ws.io.emit("user:statusUpdated", {
+    userId: user.id,
+    status: payload.status,
+    nickname: user.displayName || user.nickname,
+    avatar: user.avatarUrl,
+  });
+
+  console.log(`[Server] USER STATUS UPDATED: ${user.email} → ${payload.status}`);
+
+  return { success: true, status: payload.status };
+}
+
 
   // app/Controllers/Ws/MessageController.ts
 
