@@ -8,6 +8,7 @@ export const useStatusStore = defineStore('status', {
   state: () => ({
     myStatus: 'online' as UserStatusType,
     userStatuses: {} as Record<string, UserStatusType>,
+    userDnds: {} as Record<string, boolean>,
     initialized: false,
   }),
 
@@ -40,6 +41,10 @@ export const useStatusStore = defineStore('status', {
           this.userStatuses[payload.nickname] = payload.status;
         }
       });
+      GlobalSocketService.socket.on('user:dndUpdated', (payload) => {
+        console.log('STATUS EVENT RECEIVED (others):', payload);
+        this.userDnds[payload.nickname] = payload.dnd;
+      });
     },
 
     updateStatuses(payload: unknown) {
@@ -51,6 +56,16 @@ export const useStatusStore = defineStore('status', {
       });
 
       console.log('ALL statuses:', this.userStatuses);
+    },
+    updateDnds(payload: unknown) {
+      const list = Array.isArray(payload) ? payload : [payload];
+
+      list.forEach((u) => {
+        if (!u.nickname) return;
+        this.userDnds[u.nickname] = Boolean(u.dnd);
+      });
+
+      console.log('ALL DNDs:', this.userDnds);
     },
 
     setMyStatus(newStatus: UserStatusType) {

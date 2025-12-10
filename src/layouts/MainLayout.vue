@@ -6,6 +6,9 @@
         <q-toolbar-title class="text-left"> Shello </q-toolbar-title>
 
         <div v-if="isChatPage" class="row items-center q-gutter-sm">
+          <div v-if="doNotDisturb" class="dnd-emoji q-mr-xs">
+            {{ profileEmoji }}
+          </div>
           <div class="q-pa-md text-weight-bold text-body1">{{ userProfile.nickname }}</div>
           <div class="relative-position">
             <q-btn flat dense round aria-label="User" @click="toggleRightDrawer">
@@ -286,6 +289,7 @@ const updateStatus = async () => {
       console.log("Status 'online' sent");
 
       await general.fetchAllStatuses();
+      await general.fetchAllDnds();
       console.log('Fetched all user statuses after going online');
     } catch (err) {
       console.error('Failed to send status:', err);
@@ -409,5 +413,12 @@ async function confirmLogout() {
   bottom: 0;
   right: 0;
   z-index: 1;
+}
+.dnd-emoji {
+  font-size: 26px; /* väčšie emoji */
+  line-height: 1; /* nech nie je zbytočne vysoké */
+  margin-right: -12px; /* posunie emoji bližšie ku menu */
+  display: flex;
+  align-items: center;
 }
 </style>

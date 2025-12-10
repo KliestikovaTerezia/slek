@@ -132,6 +132,9 @@
                         class="status-indicator q-ml-sm"
                         :style="{ backgroundColor: getMemberStatusObj(msg.user).color }"
                       ></div>
+                      <div v-if="getMemberDnd(msg.user)" class="dnd-emoji absolute-bottom-right">
+                        🏖️
+                      </div>
                     </div>
                     <div class="column items-start">
                       <div class="text-caption text-grey-6 q-mb-xs">
@@ -511,6 +514,10 @@ interface Message {
   user: string;
   text: string;
 }
+
+const getMemberDnd = computed(() => (nickname: string) => {
+  return statusStore.userDnds[nickname] ?? false;
+});
 
 const getMemberStatusObj = (memberName: string) => {
   const key = statusStore.userStatuses[memberName] ?? 'online';
@@ -1644,5 +1651,11 @@ const sendMessage = async () => {
 }
 .typing-text {
   color: #666;
+}
+.dnd-emoji {
+  position: absolute;
+  top: -10px; /* adjust as needed */
+  right: -7px; /* adjust as needed */
+  font-size: 16px;
 }
 </style>
