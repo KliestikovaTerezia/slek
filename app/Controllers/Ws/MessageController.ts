@@ -7,7 +7,8 @@ import ChannelInvitation from "App/Models/ChannelInvitation";
 import type { InvitationPayload } from "contracts/invitation";
 import ChannelBan from "App/Models/ChannelBan";
 
-export const userStatuses: Record<number, "online" | "offline" | "dnd"> = {};
+export const userStatuses: Record<number, "online" | "offline" > = {};
+const userDndStatuses: Record<number, boolean> = {};
 
 @inject(["Repositories/MessageRepository"])
 export default class MessageController {
@@ -252,10 +253,47 @@ export default class MessageController {
 
     return { message: `Channel "${channelName}" deleted` }
   }
+
+//dnd
+public async updateDnd(
+  { auth }: WsContextContract,
+  payload: { dnd: boolean }
+) {
+  const user = auth.user!;
+  user.dnd = payload.dnd;
+  await user.save();
+  
+  // Save DND status separately
+  userDndStatuses[user.id] = payload.dnd;
+  console.log('[Server] updateDnd called for user:', user.email, 'payload:', payload);
+
+  const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
+
+  // Broadcast DND update to everyone
+  Ws.io.emit('user:dndUpdated', {
+    userId: user.id,
+    dnd: payload.dnd,
+    nickname: user.displayName || user.nickname,
+    avatar: user.avatarUrl,
+  });
+
+  console.log(`[Server] USER DND UPDATED: ${user.email} → ${payload.dnd}`);
+
+  return { success: true, dnd: payload.dnd };
+}
+
+public async getAllDnds({}: WsContextContract) {
+  const users = await User.query().select('nickname', 'dnd');
+  
+  return users.map(u => ({
+    nickname: u.nickname,
+    dnd: u.dnd
+  }));
+}
   
 public async updateStatus(
   { auth, socket }: WsContextContract,
-  payload: { status: "online" | "offline" | "dnd"; userId?: number } // type môže byť objekt
+  payload: { status: "online" | "offline"; userId?: number } // type môže byť objekt
 ) {
   const user = auth.user!;
   userStatuses[user.id] = payload.status;
