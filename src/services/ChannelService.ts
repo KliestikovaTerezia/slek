@@ -102,6 +102,11 @@ export class ChannelSocketManager extends SocketManager {
     return this.emitAsync('updateStatus', { status });
   }
 
+  public async updateDnd(dnd: boolean) {
+    console.log('Posielam DND na update: ', dnd);
+    return this.emitAsync('updateDnd', { dnd });
+  }
+
   public async fetchAllStatuses(): Promise<void> {
     try {
       const response = await this.emitAsync('getAllStatuses', {});
@@ -120,6 +125,24 @@ export class ChannelSocketManager extends SocketManager {
       }
     } catch (err) {
       console.error('Failed to fetch all user statuses:', err);
+    }
+  }
+
+  public async fetchAllDnds(): Promise<void> {
+    try {
+      const response = await this.emitAsync('getAllDnds', {});
+      if (Array.isArray(response)) {
+        // Dynamický import store
+        const { useStatusStore } = await import('src/stores/status');
+        const statusStore = useStatusStore();
+
+        // Aktualizuj všetky DND naraz
+        statusStore.updateDnds(response);
+
+        console.log('Fetched all user DNDs:', response);
+      }
+    } catch (err) {
+      console.error('Failed to fetch DNDs:', err);
     }
   }
 

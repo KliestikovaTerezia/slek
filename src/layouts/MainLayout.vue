@@ -6,6 +6,9 @@
         <q-toolbar-title class="text-left"> Shello </q-toolbar-title>
 
         <div v-if="isChatPage" class="row items-center q-gutter-sm">
+          <div v-if="doNotDisturb" class="dnd-emoji q-mr-xs">
+            {{ profileEmoji }}
+          </div>
           <div class="q-pa-md text-weight-bold text-body1">{{ userProfile.nickname }}</div>
           <div class="relative-position">
             <q-btn flat dense round aria-label="User" @click="toggleRightDrawer">
@@ -70,7 +73,18 @@
               </div>
             </q-item-section>
             <q-item-section>
-              {{ userProfile.firstName }} {{ userProfile.lastName }}
+              <q-item-label>
+                <div class="row items-center no-wrap">
+                  <span class="q-mr-sm">
+                    {{ userProfile.firstName }} {{ userProfile.lastName }}
+                  </span>
+
+                  <!-- Only show emoji when Do Not Disturb is active -->
+                  <span v-if="doNotDisturb" class="text-body1">
+                    {{ profileEmoji }}
+                  </span>
+                </div>
+              </q-item-label>
             </q-item-section>
           </template>
 
@@ -105,19 +119,16 @@
           self="top middle"
           :offset="[0, 8]"
         >
-          <q-list style="min-width: 150px">
-            <q-item clickable v-close-popup @click="showStatusDialog = true">
-              <q-item-section>Statuses</q-item-section>
-            </q-item>
-          </q-list>
-
+          <!-- do not disturb, statuses, notifications -->
           <q-item>
             <q-item-section>
-              <q-btn
-                label="Enable notifications"
-                @click="askForNotificationPermission"
-                :disable="notificationPermission === 'granted'"
-              />
+              <q-toggle
+                v-model="doNotDisturb"
+                label="Do not disturb"
+                @update:model-value="handleDoNotDisturbToggle"
+              >
+                <q-tooltip>Let others know you don't want to be disturbed</q-tooltip>
+              </q-toggle>
               <q-toggle
                 v-model="notifyOnlyWhenTagged"
                 label="Notify only when tagged"
@@ -125,6 +136,12 @@
               >
                 <q-tooltip>Receive notifications only when mentioned or tagged</q-tooltip>
               </q-toggle>
+              <q-btn label="Change status" @click="showStatusDialog = true" />
+              <q-btn
+                label="Enable notifications"
+                @click="askForNotificationPermission"
+                :disable="notificationPermission === 'granted'"
+              />
             </q-item-section>
           </q-item>
         </q-menu>
@@ -184,6 +201,8 @@ import { SocketManager } from 'src/services/SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import ChannelService from 'src/services/ChannelService';
 
+//do not disturb
+const doNotDisturb = ref(false);
 // ...
 const channelsStore = useChannelsStore();
 const statusStore = useStatusStore();
@@ -207,6 +226,26 @@ const myStatusObj = computed(() => {
   const statusKey = myStatus.value;
   return statusMap[statusKey] || statusMap.online;
 });
+
+const handleDoNotDisturbToggle = async (newValue: boolean) => {
+  doNotDisturb.value = newValue;
+  console.log('Do Not Disturb toggled:', newValue);
+
+  // Broadcast via ChannelService
+  let general = ChannelService.in('general');
+  if (!general) {
+    general = ChannelService.join('general');
+  }
+
+  try {
+    await general.updateDnd(newValue);
+    console.log('DND updated via socket:', newValue);
+  } catch (err) {
+    console.error('Failed to update DND:', err);
+  }
+};
+
+const profileEmoji = computed(() => (doNotDisturb.value ? '🏖️' : ''));
 
 const updateStatus = async () => {
   console.log('[UI] Final status set via dialog:', myStatus.value);
@@ -250,6 +289,7 @@ const updateStatus = async () => {
       console.log("Status 'online' sent");
 
       await general.fetchAllStatuses();
+      await general.fetchAllDnds();
       console.log('Fetched all user statuses after going online');
     } catch (err) {
       console.error('Failed to send status:', err);
@@ -373,5 +413,12 @@ async function confirmLogout() {
   bottom: 0;
   right: 0;
   z-index: 1;
+}
+.dnd-emoji {
+  font-size: 26px; /* väčšie emoji */
+  line-height: 1; /* nech nie je zbytočne vysoké */
+  margin-right: -12px; /* posunie emoji bližšie ku menu */
+  display: flex;
+  align-items: center;
 }
 </style>
