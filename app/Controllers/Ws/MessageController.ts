@@ -7,6 +7,8 @@ import ChannelInvitation from "App/Models/ChannelInvitation";
 import type { InvitationPayload } from "contracts/invitation";
 import ChannelBan from "App/Models/ChannelBan";
 
+export const userStatuses: Record<number, "online" | "offline" | "dnd"> = {};
+
 @inject(["Repositories/MessageRepository"])
 export default class MessageController {
   constructor(private messageRepository: MessageRepositoryContract) {}
@@ -225,12 +227,6 @@ export default class MessageController {
   //   return { success: true };   
 
   // }
-
-
-//   /**
-//  * Dynamické zmazanie kanála cez WebSockety (náhrada za HTTP destroy)
-//  */
-// app/Controllers/Ws/MessageController.ts
   public async deleteChannel({ auth, socket }: WsContextContract, channelId: number) {
     const user = auth.user!
     const channel = await Channel.findOrFail(channelId)
@@ -262,6 +258,7 @@ public async updateStatus(
   payload: { status: "online" | "offline" | "dnd"; userId?: number } // type môže byť objekt
 ) {
   const user = auth.user!;
+  userStatuses[user.id] = payload.status;
   console.log('[Server] updateStatus called for user:', user.email, 'payload:', payload);
 
   const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
@@ -278,13 +275,22 @@ public async updateStatus(
   return { success: true, status: payload.status };
 }
 
+public async getAllStatuses({ auth }: WsContextContract) {
+  const userIds = Object.keys(userStatuses).map(Number);
 
-  // app/Controllers/Ws/MessageController.ts
+  // načítaj všetkých používateľov z DB podľa ID
+  const users = await User.query().whereIn('id', userIds);
 
-// ... import ChannelBan ...
-// ... import Channel ...
+  const statuses = users.map(u => ({
+    userId: u.id,
+    status: userStatuses[u.id], // tu je len status
+    nickname: u.displayName || u.nickname || u.email.split('@')[0],
+    avatar: u.avatarUrl,
+  }));
 
-// ... vo vnútri triedy MessageController ...
+  return statuses;
+}
+
 
 /**
  * Kontrola banu pre používateľa v danom kanáli.
