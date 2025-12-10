@@ -182,6 +182,7 @@ import NotificationService from 'src/services/NotificationService';
 import { useStatusStore } from 'src/stores/status';
 import { SocketManager } from 'src/services/SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
+import ChannelService from 'src/services/ChannelService';
 
 // ...
 const channelsStore = useChannelsStore();
@@ -207,38 +208,51 @@ const myStatusObj = computed(() => {
   return statusMap[statusKey] || statusMap.online;
 });
 
-function updateStatus() {
-  // Ak je status 'online', setter to detekuje a zavolá GlobalSocketService.connect()
-  // Ak je status 'offline', setter to detekuje a zavolá GlobalSocketService.disconnect()
-
-  // Všetko riadi setter, takže stačí zavrieť dialóg.
+const updateStatus = async () => {
   console.log('[UI] Final status set via dialog:', myStatus.value);
   showStatusDialog.value = false;
 
-  // Dôležité: Ak by ste chceli, aby sa status EMITOVAL na server aj po uložení
-  // (napr. pre prípad, že bol status už online a vy len potvrdzujete),
-  // musíte tu pridať:
-  // if (myStatus.value === 'online' && GlobalSocketService.socket.connected) {
-  //   statusStore.updateStatus('online'); // Emitujeme 'online' (ak sme už pripojení)
-  // }    // 2. 🚨 RIADENIE PRIPOJENIA (logika ostáva rovnaká)
   if (myStatus.value === 'offline') {
-    console.log('[Socket Control] Status set to Offline. Disconnecting MANAGER main socket.');
-    //odpoji vsetky osobitne kanaly okrem root
-    SocketManager.disconnectManager();
-    //teraz root
-    // GlobalSocketService.socket.disconnect();
-  } else if (myStatus.value === 'online') {
+    try {
+      // 1) Send status BEFORE disconnect
+      let general = ChannelService.in('general');
+      if (!general) {
+        general = ChannelService.join('general');
+      }
+      await general.sendStatus('offline');
+      console.log("Status 'offline' sent");
+    } catch (err) {
+      console.error('Failed to send status:', err);
+    }
+
+    console.log('[Socket Control] Disconnecting all sockets...');
+    SocketManager.disconnectManager(); // totally OK
+    return;
+  }
+  if (myStatus.value === 'online') {
+    // 1) Ensure manager is connected
     if (!GlobalSocketService.socket.connected) {
-      console.log('[Socket Control] Status set to Online. Connecting socket.');
+      console.log('[Socket Control] Connecting main socket...');
       GlobalSocketService.socket.connect();
-      void channelsStore.loadMissedMessagesForAll();
-    } else {
-      // Ak sme už pripojení, emitujeme 'online'
-      statusStore.updateStatus('online');
+    }
+
+    // 2) Load missed messages
+    void channelsStore.loadMissedMessagesForAll();
+
+    try {
+      // 3) Ensure general exists and send status
+      let general = ChannelService.in('general');
+      if (!general) {
+        general = ChannelService.join('general');
+      }
+
+      await general.sendStatus('online');
+      console.log("Status 'online' sent");
+    } catch (err) {
+      console.error('Failed to send status:', err);
     }
   }
-  showStatusDialog.value = false;
-}
+};
 
 // RESPONSIVE DRAWER
 const drawerWidth = computed(() => ($q.screen.xs ? $q.screen.width : 350));

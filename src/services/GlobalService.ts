@@ -3,7 +3,7 @@ import { SocketManager } from './SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import type { Invitation, InvitationWithUserId } from 'src/types/invitation';
 import { useAuthStore } from 'src/stores/auth';
-import { type UserStatusType } from 'src/types/UserStatus';
+// import { type UserStatusType } from 'src/types/UserStatus';
 
 class GlobalSocketService extends SocketManager {
   private subscribed = false;
@@ -24,26 +24,46 @@ class GlobalSocketService extends SocketManager {
   }
 
   // 1️⃣ Emit na server – user zmenil svoj status
-  public updateStatus(newStatus: UserStatusType): void {
-    console.log('HelOOOOOOOOO');
-    try {
-      console.log('[Service] emitting updateStatus to server with:', newStatus);
-      this.socket.emit('updateStatus', {
-        status: newStatus,
-        userId: useAuthStore().user?.id,
-      });
-    } catch (err) {
-      console.error('Failed to emit updateStatus:', err);
-    }
-  }
+  // public updateStatus(newStatus: UserStatusType): void {
+  //   console.log('HelOOOOOOOOO');
+  //   try {
+  //     console.log('[Service] emitting updateStatus to server with:', newStatus);
+  //     this.socket.emit('updateStatus', {
+  //       status: newStatus,
+  //       userId: useAuthStore().user?.id,
+  //     });
+  //   } catch (err) {
+  //     console.error('Failed to emit updateStatus:', err);
+  //   }
+  // }
 
-  // 2️⃣ Prijímanie eventov z backendu
-  public onStatusUpdated(
-    callback: (data: { userId: string | number; status: UserStatusType }) => void,
-  ): void {
-    this.socket.off('user:statusUpdated'); // zrušíme predchádzajúce listener-y
-    this.socket.on('user:statusUpdated', callback);
-  }
+  // // 2️⃣ Prijímanie eventov z backendu
+  // public onStatusUpdated(
+  //   callback: (data: { userId: string | number; status: UserStatusType }) => void,
+  // ): void {
+  //   this.socket.off('user:statusUpdated'); // zrušíme predchádzajúce listener-y
+  //   this.socket.on('user:statusUpdated', callback);
+  // }
+
+  // public async sendStatus(status: UserStatusType): Promise<{
+  //   success: boolean;
+  //   status: UserStatusType;
+  // }> {
+  //   try {
+  //     console.log('[Global Service] Sending status:', status);
+
+  //     const result = await this.emitAsync('updateStatus', {
+  //       status,
+  //       userId: useAuthStore().user?.id,
+  //     });
+
+  //     console.log('[Global Service] Server response:', result);
+  //     return result as { success: boolean; status: UserStatusType };
+  //   } catch (err) {
+  //     console.error('[Global Service] Failed to send status:', err);
+  //     throw err;
+  //   }
+  // }
 
   public subscribe(): void {
     if (this.subscribed) {

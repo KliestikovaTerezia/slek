@@ -130,7 +130,7 @@
                       />
                       <div
                         class="status-indicator q-ml-sm"
-                        :class="`status-${getUserByName(msg.user).status}`"
+                        :style="{ backgroundColor: getMemberStatusObj(msg.user).color }"
                       ></div>
                     </div>
                     <div class="column items-start">
@@ -391,7 +391,10 @@
                       bgColor="grey-3"
                       class="q-mr-sm"
                     />
-                    <div class="status-indicator q-ml-sm" :class="`status-${member.status}`"></div>
+                    <div
+                      class="status-indicator q-ml-sm"
+                      :style="{ backgroundColor: getMemberStatusObj(member.name).color }"
+                    ></div>
                   </div>
                   <span>{{ member.name }}</span>
                 </div>
@@ -485,12 +488,14 @@ import type { Channel } from 'src/types/channel';
 import channelService from 'src/services/ChannelService';
 import { useInvitationsStore } from 'src/stores/invitations';
 import type { Invitation } from 'src/types/invitation';
+import { statusMap } from 'src/types/UserStatus';
 
 // backend
 import { api } from 'src/boot/axios';
 import { useChannelsStore } from 'src/stores/channels';
 import { useStatusStore } from 'src/stores/status';
 
+const statusStore = useStatusStore();
 type UserStatus = 'online' | 'dnd' | 'offline';
 
 interface User {
@@ -506,6 +511,11 @@ interface Message {
   user: string;
   text: string;
 }
+
+const getMemberStatusObj = (memberName: string) => {
+  const key = statusStore.userStatuses[memberName] ?? 'online';
+  return statusMap[key] || statusMap.online;
+};
 
 const channelMembers = computed(() => {
   return channelsStore.activeChannelMembers.map((m) => ({
@@ -650,7 +660,6 @@ const selectChannel = async (ch: Channel) => {
   const socket = channelService.join(ch.name);
 
   const hasMessages = channelsStore.messages[ch.name]?.length > 0;
-  const statusStore = useStatusStore();
   if (statusStore.myStatus === 'offline') {
     systemMessage.value = 'You have to be online to join this channel';
     return;
@@ -1487,7 +1496,6 @@ const sendMessage = async () => {
     // At this point we KNOW we have an active channel - safe to use
     const channelName = activeChannel.value.name;
 
-    const statusStore = useStatusStore();
     if (statusStore.myStatus === 'offline') {
       systemMessage.value = 'Cannot send message: You are currently offline.';
       newMessage.value = '';

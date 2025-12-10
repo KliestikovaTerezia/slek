@@ -93,6 +93,14 @@ export class ChannelSocketManager extends SocketManager {
     return this.emitAsync('checkBanStatus', channelName);
   }
 
+  public async sendStatus(status: 'online' | 'offline'): Promise<{
+    success: boolean;
+    status: string;
+  }> {
+    console.log('Sending status via ChannelSocket:', status);
+    return this.emitAsync('updateStatus', { status });
+  }
+
   // public onChannelKicked(callback: (data: { channelId: number; channelName: string }) => void) {
   //   // ✅ Použite .off() pred .on() na zabránenie duplikácie!
   //   this.socket.off('channel:kicked', callback); // Musíte použiť aj v .off(callback)!
