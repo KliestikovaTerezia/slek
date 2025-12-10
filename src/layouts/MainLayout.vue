@@ -187,7 +187,7 @@ import ChannelService from 'src/services/ChannelService';
 // ...
 const channelsStore = useChannelsStore();
 const statusStore = useStatusStore();
-statusStore.init();
+void statusStore.init();
 
 const myStatus = computed({
   get: () => statusStore.myStatus,
@@ -248,6 +248,9 @@ const updateStatus = async () => {
 
       await general.sendStatus('online');
       console.log("Status 'online' sent");
+
+      await general.fetchAllStatuses();
+      console.log('Fetched all user statuses after going online');
     } catch (err) {
       console.error('Failed to send status:', err);
     }

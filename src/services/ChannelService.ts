@@ -8,6 +8,7 @@ import type { SerializedMessage } from 'src/contracts';
 import type { Invitation } from 'src/types/invitation';
 import notificationService from './NotificationService';
 import { useAuthStore } from 'src/stores/auth';
+// import { useStatusStore } from 'src/stores/status';
 
 export interface BanStatus {
   status: 'ok' | 'banned' | 'not_found';
@@ -101,11 +102,26 @@ export class ChannelSocketManager extends SocketManager {
     return this.emitAsync('updateStatus', { status });
   }
 
-  // public onChannelKicked(callback: (data: { channelId: number; channelName: string }) => void) {
-  //   // ✅ Použite .off() pred .on() na zabránenie duplikácie!
-  //   this.socket.off('channel:kicked', callback); // Musíte použiť aj v .off(callback)!
-  //   this.socket.on('channel:kicked', callback);
-  // }
+  public async fetchAllStatuses(): Promise<void> {
+    try {
+      const response = await this.emitAsync('getAllStatuses', {});
+      if (Array.isArray(response)) {
+        const payload = response.map((u) => ({
+          nickname: u.nickname,
+          status: u.status,
+        }));
+
+        // ✅ dynamický import store, aby sa predišlo cyklu
+        const { useStatusStore } = await import('src/stores/status');
+        const statusStore = useStatusStore();
+        statusStore.updateStatuses(payload);
+
+        console.log('Fetched all user statuses:', payload);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all user statuses:', err);
+    }
+  }
 
   public async acceptInvitation(invitationId: number): Promise<{
     success: true;

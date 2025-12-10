@@ -116,6 +116,7 @@ export const useChannelsStore = defineStore('channels', {
         return [];
       }
     },
+
     //nacita spravy ktore prichadzali pocas offline, nevideli sme ich
     async loadMissedMessagesForAll() {
       for (const channelName of this.joinedChannels) {

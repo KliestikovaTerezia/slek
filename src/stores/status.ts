@@ -35,9 +35,10 @@ export const useStatusStore = defineStore('status', {
 
       // Kes zmeni status NIEKTO INY
       GlobalSocketService.socket.on('user:statusUpdated', (payload) => {
-        console.log('STATUS EVENT RECEIVED (others):', payload);
-
-        this.updateStatuses(payload);
+        if (this.myStatus === 'online') {
+          console.log('STATUS EVENT RECEIVED (others):', payload);
+          this.userStatuses[payload.nickname] = payload.status;
+        }
       });
     },
 
@@ -51,26 +52,6 @@ export const useStatusStore = defineStore('status', {
 
       console.log('ALL statuses:', this.userStatuses);
     },
-
-    //
-    // 2. 🔥 Emit na server (funguje cez GlobalService bez namespace)
-    //
-    // updateStatus(newStatus: UserStatusType) {
-    //   const authStore = useAuthStore();
-    //   if (!authStore.user) return;
-
-    //   // 1. Zmena stavu lokálne (UI)
-    //   this.myStatus = newStatus; // Zmenené z myStatus.value na this.myStatus
-    //   // Odstránené: authStore.user.status = newStatus; (už neukladáme do DB)
-
-    //   // 2. Emitovanie na server (EMITUJEME IBA AK NIE SME OFFLINE)
-    //   if (newStatus === 'online') {
-    //     if (GlobalSocketService.socket.connected) {
-    //       console.log('[Store] emitting updateStatus to server with:', newStatus);
-    //       GlobalSocketService.updateStatus(newStatus);
-    //     }
-    //   }
-    // },
 
     setMyStatus(newStatus: UserStatusType) {
       this.myStatus = newStatus;
