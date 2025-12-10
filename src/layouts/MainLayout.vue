@@ -113,10 +113,10 @@
 
           <q-item>
             <q-item-section>
-              <q-toggle
-                v-model="notificationsEnabled"
+              <q-btn
                 label="Enable notifications"
-                @update:model-value="askForNotificationPermission"
+                @click="askForNotificationPermission"
+                :disable="notificationPermission === 'granted'"
               />
               <q-toggle
                 v-model="notifyOnlyWhenTagged"
@@ -149,7 +149,7 @@
             v-model="myStatus"
             :options="[
               { label: 'Online', value: 'online' },
-              { label: 'Do Not Disturb', value: 'dnd' },
+              // { label: 'Do Not Disturb', value: 'dnd' },
               { label: 'Offline', value: 'offline' },
             ]"
             label="Status"
@@ -180,25 +180,22 @@ import { statusMap } from 'src/types/UserStatus';
 import GlobalSocketService from 'src/services/GlobalService';
 import NotificationService from 'src/services/NotificationService';
 import { useStatusStore } from 'src/stores/status';
+import { SocketManager } from 'src/services/SocketManager';
+import { useChannelsStore } from 'src/stores/channels';
+import ChannelService from 'src/services/ChannelService';
 
+// ...
+const channelsStore = useChannelsStore();
 const statusStore = useStatusStore();
-statusStore.init();
+void statusStore.init();
 
 const myStatus = computed({
   get: () => statusStore.myStatus,
   set: (value) => {
-    statusStore.myStatus = value; // len lokálna aktualizácia
+    // 1. Lokálna aktualizácia (Pinia store) - TERAZ JE SPRÁVNE
+    statusStore.setMyStatus(value);
   },
 });
-
-const askForNotificationPermission = async () => {
-  const granted = await NotificationService.requestPermission();
-  if (!granted) {
-    console.warn('Notifications not allowed by user');
-  }
-};
-
-const notificationsEnabled = ref(false);
 
 const authStore = useAuthStore();
 const $q = useQuasar();
@@ -208,19 +205,57 @@ const route = useRoute();
 // const initialStatusFromStore = authStore.user?.status;
 const myStatusObj = computed(() => {
   const statusKey = myStatus.value;
-  return statusMap[statusKey] || statusMap.offline;
+  return statusMap[statusKey] || statusMap.online;
 });
 
-function updateStatus() {
-  if (!GlobalSocketService.socket.connected) {
-    console.warn('[UI] Socket not connected yet. Status not sent:', myStatus.value);
+const updateStatus = async () => {
+  console.log('[UI] Final status set via dialog:', myStatus.value);
+  showStatusDialog.value = false;
+
+  if (myStatus.value === 'offline') {
+    try {
+      // 1) Send status BEFORE disconnect
+      let general = ChannelService.in('general');
+      if (!general) {
+        general = ChannelService.join('general');
+      }
+      await general.sendStatus('offline');
+      console.log("Status 'offline' sent");
+    } catch (err) {
+      console.error('Failed to send status:', err);
+    }
+
+    console.log('[Socket Control] Disconnecting all sockets...');
+    SocketManager.disconnectManager(); // totally OK
     return;
   }
+  if (myStatus.value === 'online') {
+    // 1) Ensure manager is connected
+    if (!GlobalSocketService.socket.connected) {
+      console.log('[Socket Control] Connecting main socket...');
+      GlobalSocketService.socket.connect();
+    }
 
-  console.log('[UI] updateStatus called, value =', myStatus.value);
-  statusStore.updateStatus(myStatus.value); // emit na server
-  showStatusDialog.value = false;
-}
+    // 2) Load missed messages
+    void channelsStore.loadMissedMessagesForAll();
+
+    try {
+      // 3) Ensure general exists and send status
+      let general = ChannelService.in('general');
+      if (!general) {
+        general = ChannelService.join('general');
+      }
+
+      await general.sendStatus('online');
+      console.log("Status 'online' sent");
+
+      await general.fetchAllStatuses();
+      console.log('Fetched all user statuses after going online');
+    } catch (err) {
+      console.error('Failed to send status:', err);
+    }
+  }
+};
 
 // RESPONSIVE DRAWER
 const drawerWidth = computed(() => ($q.screen.xs ? $q.screen.width : 350));
@@ -254,6 +289,16 @@ const userProfile = computed(() => {
   };
 });
 
+const notificationPermission = ref(Notification.permission);
+
+const askForNotificationPermission = async () => {
+  const granted = await NotificationService.requestPermission();
+  notificationPermission.value = Notification.permission;
+  if (!granted) {
+    console.warn('Notifications not allowed by user');
+  }
+};
+
 // ked je tag zapnuty
 const notifyOnlyWhenTagged = computed({
   get: () => authStore.settings?.notifyOnlyMentions ?? false,
@@ -265,6 +310,8 @@ const notifyOnlyWhenTagged = computed({
 function handleNotifyToggle(value: boolean) {
   console.log('Notify only when tagged:', value);
 }
+
+//DO NOT DISTURB
 
 // SHOW ELEMENTS ONLY ON CHAT PAGE
 const isChatPage = computed(() => route.path === '/channels');

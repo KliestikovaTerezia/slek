@@ -1,14 +1,22 @@
-import { SocketManager } from './SocketManager';
+import {
+  SocketManager,
+  type BootParams,
+  type SocketManagerConstructorContract,
+} from './SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import type { SerializedMessage } from 'src/contracts';
-import type { BootParams } from './SocketManager';
 import type { Invitation } from 'src/types/invitation';
 import notificationService from './NotificationService';
 import { useAuthStore } from 'src/stores/auth';
+// import { useStatusStore } from 'src/stores/status';
 
 export interface BanStatus {
   status: 'ok' | 'banned' | 'not_found';
   message?: string;
+}
+
+export interface LoadMessagesOptions {
+  sinceId?: number;
 }
 
 export class ChannelSocketManager extends SocketManager {
@@ -86,11 +94,34 @@ export class ChannelSocketManager extends SocketManager {
     return this.emitAsync('checkBanStatus', channelName);
   }
 
-  // public onChannelKicked(callback: (data: { channelId: number; channelName: string }) => void) {
-  //   // ✅ Použite .off() pred .on() na zabránenie duplikácie!
-  //   this.socket.off('channel:kicked', callback); // Musíte použiť aj v .off(callback)!
-  //   this.socket.on('channel:kicked', callback);
-  // }
+  public async sendStatus(status: 'online' | 'offline'): Promise<{
+    success: boolean;
+    status: string;
+  }> {
+    console.log('Sending status via ChannelSocket:', status);
+    return this.emitAsync('updateStatus', { status });
+  }
+
+  public async fetchAllStatuses(): Promise<void> {
+    try {
+      const response = await this.emitAsync('getAllStatuses', {});
+      if (Array.isArray(response)) {
+        const payload = response.map((u) => ({
+          nickname: u.nickname,
+          status: u.status,
+        }));
+
+        // ✅ dynamický import store, aby sa predišlo cyklu
+        const { useStatusStore } = await import('src/stores/status');
+        const statusStore = useStatusStore();
+        statusStore.updateStatuses(payload);
+
+        console.log('Fetched all user statuses:', payload);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all user statuses:', err);
+    }
+  }
 
   public async acceptInvitation(invitationId: number): Promise<{
     success: true;
@@ -110,6 +141,22 @@ export class ChannelSocketManager extends SocketManager {
 
   public async getInvitations(): Promise<Invitation[]> {
     return this.emitAsync('getInvitations');
+  }
+
+  public destroy(): void {
+    (this.constructor as SocketManagerConstructorContract).destroyInstance(this);
+
+    // 🚨 KĽÚČOVÉ RIEŠENIE: Prístup k singletonu cez dynamický import (ktorý rieši cykly)
+    // Aj keď je to v tom istom súbore, toto je najspoľahlivejší mechanizmus
+    // v modernom JS/TS pri mixovaní inštancií.
+    import('./ChannelService')
+      .then((module) => {
+        // module.default je vaša singleton inštancia new ChannelService()
+        module.default.removeInstance(this.namespace);
+      })
+      .catch((err) => {
+        console.error('Failed to remove channel instance during destroy:', err);
+      });
   }
 
   public subscribe(): void {
@@ -189,7 +236,7 @@ export class ChannelSocketManager extends SocketManager {
       }
     });
 
-    this.socket.off('channel:deleted');
+    // this.socket.off('channel:deleted');
     this.socket.on('channel:deleted', ({ channelId, channelName }) => {
       console.log('CHANNEL DELETED:', channelName);
 
@@ -203,6 +250,10 @@ export class ChannelSocketManager extends SocketManager {
         if (store.activeChannel?.id === channelId) {
           store.setActive(store.channelsList[0]?.name || '');
         }
+      }
+
+      if (store.activeChannel?.id === channelId) {
+        store.setActive(store.channelsList[0]?.name ?? '');
       }
     });
 
@@ -231,9 +282,9 @@ export class ChannelSocketManager extends SocketManager {
     return result;
   }
 
-  public async loadMessages(): Promise<SerializedMessage[]> {
-    console.log('Loading messages from:', this.namespace);
-    return this.emitAsync('loadMessages');
+  public async loadMessages(options?: LoadMessagesOptions): Promise<SerializedMessage[]> {
+    // ✅ Používame typ, ktorý je definovaný a importovaný
+    return this.emitAsync<SerializedMessage[]>('loadMessages', options || {});
   }
 
   public async addMessage(content: string): Promise<SerializedMessage> {
@@ -277,6 +328,14 @@ class ChannelService {
 
     socket.destroy();
     return this.channels.delete(normalized);
+  }
+  public removeInstance(namespace: string): void {
+    const name = namespace.split('/').pop() as string;
+    const normalized = this.normalize(name);
+
+    // Predpokladáme, že sa to volá po disconnect(), takže len vymažeme z mapy
+    this.channels.delete(normalized);
+    console.log(`[ChannelService] Removed instance for ${normalized} from map.`);
   }
 }
 

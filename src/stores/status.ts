@@ -6,7 +6,8 @@ import { statusMap } from 'src/types/UserStatus';
 
 export const useStatusStore = defineStore('status', {
   state: () => ({
-    myStatus: 'offline' as UserStatusType,
+    myStatus: 'online' as UserStatusType,
+    userStatuses: {} as Record<string, UserStatusType>,
     initialized: false,
   }),
 
@@ -26,32 +27,34 @@ export const useStatusStore = defineStore('status', {
         this.myStatus = authStore.user.status || 'online';
       }
 
-      //
-      // 1. 🔥 Počúvanie eventov zo servera
-      //
+      // Keď zmenis status ty
       GlobalSocketService.socket.on('status:updated', (newStatus: UserStatusType) => {
-        console.log('STATUS EVENT RECEIVED:', newStatus);
+        console.log('STATUS EVENT RECEIVED (me):', newStatus);
         this.myStatus = newStatus;
+      });
+
+      // Kes zmeni status NIEKTO INY
+      GlobalSocketService.socket.on('user:statusUpdated', (payload) => {
+        if (this.myStatus === 'online') {
+          console.log('STATUS EVENT RECEIVED (others):', payload);
+          this.userStatuses[payload.nickname] = payload.status;
+        }
       });
     },
 
-    //
-    // 2. 🔥 Emit na server (funguje cez GlobalService bez namespace)
-    //
-    updateStatus(newStatus: UserStatusType) {
-      const authStore = useAuthStore();
-      if (!authStore.user) return;
+    updateStatuses(payload: unknown) {
+      const list = Array.isArray(payload) ? payload : [payload];
 
-      // Optimistická aktualizácia UI/store
+      list.forEach((u) => {
+        if (!u.nickname || !u.status) return;
+        this.userStatuses[u.nickname] = u.status;
+      });
+
+      console.log('ALL statuses:', this.userStatuses);
+    },
+
+    setMyStatus(newStatus: UserStatusType) {
       this.myStatus = newStatus;
-      authStore.user.status = newStatus;
-
-      try {
-        console.log('[Store] emitting updateStatus to server with:', newStatus);
-        GlobalSocketService.updateStatus(newStatus); // <-- toto je správne
-      } catch (err) {
-        console.error('Failed to emit updateStatus:', err);
-      }
     },
   },
 });
