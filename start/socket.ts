@@ -21,7 +21,7 @@ Ws.namespace('channels/:name')
   .on('acceptInvitation', 'MessageController.acceptInvitation')
   .on('declineInvitation', 'MessageController.declineInvitation')
   .on('getInvitations', 'MessageController.getInvitations')
-  // .on("deleteChannel", "MessageController.deleteChannel"); 
+  .on("deleteChannel", "MessageController.deleteChannel")
   .on('checkBanStatus', 'MessageController.checkBanStatus')
   .on('updateStatus', 'UserController.updateStatus')
 

@@ -230,43 +230,33 @@ export default class MessageController {
 //   /**
 //  * Dynamické zmazanie kanála cez WebSockety (náhrada za HTTP destroy)
 //  */
-// public async deleteChannel({ auth }: WsContextContract, channelId: number) {
-//     const currentUserId = auth.user?.id
-//     if (!currentUserId) {
-//       throw new Error('Not authenticated')
-//     }
+// app/Controllers/Ws/MessageController.ts
+  public async deleteChannel({ auth, socket }: WsContextContract, channelId: number) {
+    const user = auth.user!
+    const channel = await Channel.findOrFail(channelId)
 
-//     const channel = await Channel.find(channelId)
-    
-//     if (!channel) {
-//       throw new Error('Channel not found')
-//     }
+    if (channel.createdBy !== user.id) {
+      throw new Error('Only channel creator can delete it')
+    }
 
-//     // Only creator can delete
-//     if (channel.createdBy !== currentUserId) {
-//       throw new Error('Only the channel creator can delete it')
-//     }
+    const channelName = channel.name
 
-//     const channelName = channel.name
+    await channel.delete()
 
-//     await channel.delete()
-    
-//     // ✅ DÔLEŽITÉ: Notifikácia všetkým, ktorí boli v roomke kanála, že bol zmazaný
-//     const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
-    
-//     // Použijeme .to(channelName) na odoslanie správy všetkým pripojeným k tomuto kanálu
-//     Ws.io.to(channelName).emit('channel:deleted', {
-//       channelId: channel.id,
-//       channelName: channelName,
-//     });
-    
-//     // Potrebné je tiež notifikovať globálne, aby sa aktualizovali zoznamy VŠETKÝCH kanálov
-//     Ws.io.emit('allChannels:updated'); 
+    // Pošli VŠETKÝM v roomke (vrátane admina!)
+    socket.nsp.emit('channel:deleted', {
+      channelId: channel.id,
+      channelName,
+      deletedBy: user.displayName || user.nickname,
+    })
+    console.log('Ano delete prebehol.')
+    const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default
+    // Globálny refresh pre tých, čo nie sú v roomke
+    Ws.io.emit('allChannels:updated')
 
-//     // ✅ Vrátime odpoveď pre emitAsync, ktorá sa zobrazí používateľovi, ktorý mazal
-//     return {}
-// }
-
+    return { message: `Channel "${channelName}" deleted` }
+  }
+  
 
   // app/Controllers/Ws/MessageController.ts
 
