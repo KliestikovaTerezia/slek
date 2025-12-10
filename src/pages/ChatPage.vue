@@ -26,6 +26,8 @@
         <q-badge v-if="invitationCount > 0" color="red" floating transparent>
           {{ invitationCount }}
         </q-badge>
+        <!-- Keď je offline – šedý badge s nápisom -->
+        <q-badge v-if="invitationCount > 0 && isOffline" color="grey-7" floating label="offline" />
       </div>
     </div>
 
@@ -61,6 +63,7 @@
                         v-if="canInvitePeople"
                         clickable
                         v-close-popup
+                        :disable="isOffline"
                         @click="showAddPeopleDialog = true"
                       >
                         <q-item-section>Invite people</q-item-section>
@@ -69,6 +72,7 @@
                         v-if="canRemovePeople"
                         clickable
                         v-close-popup
+                        :disable="isOffline"
                         @click="showRemovePeopleDialog = true"
                       >
                         <q-item-section>Remove people</q-item-section>
@@ -77,20 +81,27 @@
                         v-if="canKickPeople"
                         clickable
                         v-close-popup
+                        :disable="isOffline"
                         @click="showKickPeopleDialog = true"
                       >
                         <q-item-section>Kick people</q-item-section>
                       </q-item>
-                      <q-item clickable v-close-popup @click="leaveChannel">
+                      <q-item clickable :disable="isOffline" v-close-popup @click="leaveChannel">
                         <q-item-section>Leave channel</q-item-section>
                       </q-item>
-                      <q-item clickable v-close-popup @click="showMembersDialog = true">
+                      <q-item
+                        clickable
+                        :disable="isOffline"
+                        v-close-popup
+                        @click="showMembersDialog = true"
+                      >
                         <q-item-section>Members</q-item-section>
                       </q-item>
                       <q-item
                         v-if="activeChannel?.isAdmin"
                         clickable
                         v-close-popup
+                        :disable="isOffline"
                         @click="openDeleteConfirm"
                       >
                         <q-item-section class="text-negative">Delete channel</q-item-section>
@@ -213,6 +224,7 @@
                 input-class="command-input"
                 outlined
                 dense
+                :disable="isOffline"
                 maxlength="1000"
                 class="col"
                 @keyup.enter="sendMessage"
@@ -518,6 +530,8 @@ interface Message {
 const getMemberDnd = computed(() => (nickname: string) => {
   return statusStore.userDnds[nickname] ?? false;
 });
+
+const isOffline = computed(() => statusStore.myStatus === 'offline');
 
 const getMemberStatusObj = (memberName: string) => {
   const key = statusStore.userStatuses[memberName] ?? 'online';
