@@ -25,6 +25,8 @@ Ws.namespace('channels/:name')
   .on('checkBanStatus', 'MessageController.checkBanStatus')
   .on('updateStatus', 'MessageController.updateStatus')
   .on('getAllStatuses', 'MessageController.getAllStatuses')
+  .on('updateDnd', 'MessageController.updateDnd')
+  .on('getAllDnds', 'MessageController.getAllDnds')
 
 //NEJDE MI TO GLOBALNE POSLAT NA BACKEND
 // Ws.namespace('/')
