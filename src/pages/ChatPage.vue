@@ -88,10 +88,10 @@
                         <q-item-section>Members</q-item-section>
                       </q-item>
                       <q-item
+                        v-if="activeChannel?.isAdmin"
                         clickable
                         v-close-popup
-                        v-if="activeChannel?.isAdmin"
-                        @click="deleteChannel"
+                        @click="openDeleteConfirm"
                       >
                         <q-item-section class="text-negative">Delete channel</q-item-section>
                       </q-item>
@@ -418,7 +418,7 @@
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="Cancel" color="black" v-close-popup />
-          <q-btn color="primary" label="Delete" @click="confirmDeleteChannel" />
+          <q-btn color="primary" label="Delete" @click="deleteChannelViaSocket" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -887,49 +887,36 @@ watch(
   { deep: true },
 );
 
-//deleting a channel
 const showDeleteConfirm = ref(false);
 const channelToDelete = ref<Channel | null>(null);
 
-const deleteChannel = () => {
-  if (!activeChannel.value) return;
-
-  // Store the channel and show confirmation
+const openDeleteConfirm = () => {
+  if (!activeChannel.value?.isAdmin) return;
   channelToDelete.value = activeChannel.value;
   showDeleteConfirm.value = true;
 };
 
-const confirmDeleteChannel = async () => {
-  if (!channelToDelete.value) return;
+const deleteChannelViaSocket = async () => {
+  if (!activeChannel.value?.isAdmin) return;
 
-  const channelName = channelToDelete.value.name;
-  const channelId = channelToDelete.value.id;
+  const channel = activeChannel.value;
+
+  const socket = channelService.in(channel.name);
+  if (!socket) {
+    systemMessage.value = 'Not connected to channel';
+    return;
+  }
 
   try {
-    // Call backend to delete channel
-    await api.delete(`/api/channels/${channelId}`);
-
-    // Remove from local store
-    const index = channelsStore.channelsList.findIndex((c) => c.id === channelId);
-    if (index !== -1) {
-      channelsStore.channelsList.splice(index, 1);
-    }
-
-    // Clear active channel
-    channelsStore.setActive(channelsStore.channelsList[0]?.name || '');
-
-    // Leave WebSocket room
-    const socket = channelService.in(channelName);
-    if (socket) {
-      socket.socket.disconnect();
-    }
-  } catch (error) {
-    console.error('Failed to delete channel:', error);
-    systemMessage.value = 'Failed to delete channel';
-  } finally {
-    showDeleteConfirm.value = false;
-    channelToDelete.value = null;
+    await socket.deleteChannel(channel.id);
+    systemMessage.value = 'Channel deleted...';
+    // Všetko ostatné urobí event channel:deleted – kanál zmizne všetkým okamžite
+  } catch (err) {
+    console.error('Failed to delete channel:', err);
+    systemMessage.value = 'Failed to close channel';
   }
+  showDeleteConfirm.value = false;
+  channelToDelete.value = null;
 };
 
 const getChannelMembers = () => {
@@ -1301,16 +1288,31 @@ const sendMessage = async () => {
           return;
         }
 
-        // If admin, delete the channel (channel will be destroyed for everyone)
-        if (activeChannel.value.isAdmin) {
-          channelToDelete.value = activeChannel.value;
-          await confirmDeleteChannel();
-          systemMessage.value = `Channel "${activeChannel.value.name}" has been closed by admin`;
+        const currentChannel = activeChannel.value;
+
+        // ADMIN maze kanal pre vsetkych
+        if (currentChannel.isAdmin) {
+          const socket = channelService.in(currentChannel.name);
+          if (!socket) {
+            systemMessage.value = 'Not connected to channel';
+            newMessage.value = '';
+            return;
+          }
+
+          try {
+            await socket.deleteChannel(currentChannel.id);
+            systemMessage.value = 'Channel closed by admin';
+          } catch (error) {
+            const err = error as Error;
+            systemMessage.value = err.message || 'Failed to delete channel';
+            console.error('Delete channel error:', err);
+          }
         } else {
-          // Regular member - just leave
+          // nie sme ADMIN len odideme
           channelToLeave.value = activeChannel.value;
           await confirmLeaveChannel();
         }
+        newMessage.value = '';
         return;
       } else if (command === 'quit') {
         if (!activeChannel.value) {
@@ -1318,14 +1320,32 @@ const sendMessage = async () => {
           newMessage.value = '';
           return;
         }
+        const currentChannel = activeChannel.value;
 
-        if (activeChannel.value.isAdmin) {
-          channelToDelete.value = activeChannel.value;
-          await confirmDeleteChannel();
-          systemMessage.value = `Channel "${activeChannel.value.name}" has been discarded by admin`;
-        } else {
+        if (!currentChannel.isAdmin) {
           systemMessage.value = 'Only admin can close the channel';
+          newMessage.value = '';
+          return;
         }
+
+        const socket = channelService.in(currentChannel.name);
+        if (!socket) {
+          systemMessage.value = 'Not connected to channel';
+          newMessage.value = '';
+          return;
+        }
+
+        try {
+          // Toto vráti odpoveď z servera
+          await socket.deleteChannel(currentChannel.id);
+          // Zobraz správu
+          systemMessage.value = 'Channel has been closed';
+        } catch (err) {
+          console.error('Failed to delete channel:', err);
+          systemMessage.value = 'Failed to close channel';
+        }
+
+        newMessage.value = '';
         return;
       } else if (command === 'kick') {
         const nickname = parts[1]?.trim();

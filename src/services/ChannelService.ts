@@ -212,7 +212,7 @@ export class ChannelSocketManager extends SocketManager {
       }
     });
 
-    this.socket.off('channel:deleted');
+    // this.socket.off('channel:deleted');
     this.socket.on('channel:deleted', ({ channelId, channelName }) => {
       console.log('CHANNEL DELETED:', channelName);
 
@@ -226,6 +226,10 @@ export class ChannelSocketManager extends SocketManager {
         if (store.activeChannel?.id === channelId) {
           store.setActive(store.channelsList[0]?.name || '');
         }
+      }
+
+      if (store.activeChannel?.id === channelId) {
+        store.setActive(store.channelsList[0]?.name ?? '');
       }
     });
 
