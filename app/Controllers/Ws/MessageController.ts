@@ -7,6 +7,8 @@ import ChannelInvitation from "App/Models/ChannelInvitation";
 import type { InvitationPayload } from "contracts/invitation";
 import ChannelBan from "App/Models/ChannelBan";
 
+export const userStatuses: Record<number, "online" | "offline" | "dnd"> = {};
+
 @inject(["Repositories/MessageRepository"])
 export default class MessageController {
   constructor(private messageRepository: MessageRepositoryContract) {}
@@ -225,55 +227,70 @@ export default class MessageController {
   //   return { success: true };   
 
   // }
+  public async deleteChannel({ auth, socket }: WsContextContract, channelId: number) {
+    const user = auth.user!
+    const channel = await Channel.findOrFail(channelId)
 
+    if (channel.createdBy !== user.id) {
+      throw new Error('Only channel creator can delete it')
+    }
 
-//   /**
-//  * Dynamické zmazanie kanála cez WebSockety (náhrada za HTTP destroy)
-//  */
-// public async deleteChannel({ auth }: WsContextContract, channelId: number) {
-//     const currentUserId = auth.user?.id
-//     if (!currentUserId) {
-//       throw new Error('Not authenticated')
-//     }
+    const channelName = channel.name
 
-//     const channel = await Channel.find(channelId)
-    
-//     if (!channel) {
-//       throw new Error('Channel not found')
-//     }
+    await channel.delete()
 
-//     // Only creator can delete
-//     if (channel.createdBy !== currentUserId) {
-//       throw new Error('Only the channel creator can delete it')
-//     }
+    // Pošli VŠETKÝM v roomke (vrátane admina!)
+    socket.nsp.emit('channel:deleted', {
+      channelId: channel.id,
+      channelName,
+      deletedBy: user.displayName || user.nickname,
+    })
+    console.log('Ano delete prebehol.')
+    const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default
+    // Globálny refresh pre tých, čo nie sú v roomke
+    Ws.io.emit('allChannels:updated')
 
-//     const channelName = channel.name
+    return { message: `Channel "${channelName}" deleted` }
+  }
+  
+public async updateStatus(
+  { auth, socket }: WsContextContract,
+  payload: { status: "online" | "offline" | "dnd"; userId?: number } // type môže byť objekt
+) {
+  const user = auth.user!;
+  userStatuses[user.id] = payload.status;
+  console.log('[Server] updateStatus called for user:', user.email, 'payload:', payload);
 
-//     await channel.delete()
-    
-//     // ✅ DÔLEŽITÉ: Notifikácia všetkým, ktorí boli v roomke kanála, že bol zmazaný
-//     const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
-    
-//     // Použijeme .to(channelName) na odoslanie správy všetkým pripojeným k tomuto kanálu
-//     Ws.io.to(channelName).emit('channel:deleted', {
-//       channelId: channel.id,
-//       channelName: channelName,
-//     });
-    
-//     // Potrebné je tiež notifikovať globálne, aby sa aktualizovali zoznamy VŠETKÝCH kanálov
-//     Ws.io.emit('allChannels:updated'); 
+  const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
+  
+  Ws.io.emit("user:statusUpdated", {
+    userId: user.id,
+    status: payload.status,
+    nickname: user.displayName || user.nickname,
+    avatar: user.avatarUrl,
+  });
 
-//     // ✅ Vrátime odpoveď pre emitAsync, ktorá sa zobrazí používateľovi, ktorý mazal
-//     return {}
-// }
+  console.log(`[Server] USER STATUS UPDATED: ${user.email} → ${payload.status}`);
 
+  return { success: true, status: payload.status };
+}
 
-  // app/Controllers/Ws/MessageController.ts
+public async getAllStatuses({ auth }: WsContextContract) {
+  const userIds = Object.keys(userStatuses).map(Number);
 
-// ... import ChannelBan ...
-// ... import Channel ...
+  // načítaj všetkých používateľov z DB podľa ID
+  const users = await User.query().whereIn('id', userIds);
 
-// ... vo vnútri triedy MessageController ...
+  const statuses = users.map(u => ({
+    userId: u.id,
+    status: userStatuses[u.id], // tu je len status
+    nickname: u.displayName || u.nickname || u.email.split('@')[0],
+    avatar: u.avatarUrl,
+  }));
+
+  return statuses;
+}
+
 
 /**
  * Kontrola banu pre používateľa v danom kanáli.

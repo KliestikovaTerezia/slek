@@ -21,9 +21,10 @@ Ws.namespace('channels/:name')
   .on('acceptInvitation', 'MessageController.acceptInvitation')
   .on('declineInvitation', 'MessageController.declineInvitation')
   .on('getInvitations', 'MessageController.getInvitations')
-  // .on("deleteChannel", "MessageController.deleteChannel"); 
+  .on("deleteChannel", "MessageController.deleteChannel")
   .on('checkBanStatus', 'MessageController.checkBanStatus')
-  .on('updateStatus', 'UserController.updateStatus')
+  .on('updateStatus', 'MessageController.updateStatus')
+  .on('getAllStatuses', 'MessageController.getAllStatuses')
 
 //NEJDE MI TO GLOBALNE POSLAT NA BACKEND
 // Ws.namespace('/')

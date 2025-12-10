@@ -12,8 +12,6 @@ import {
 import Channel from "App/Models/Channel";
 import Message from "App/Models/Message";
 
-export type UserStatusType = 'online' | 'dnd' | 'offline'
-
 export default class User extends BaseModel {
   @column({ isPrimary: true })
   public id: number
@@ -28,9 +26,6 @@ export default class User extends BaseModel {
   public nickname: string 
 
   @column()
-  public status: UserStatusType
-
-  @column()
   public avatar: string | null
 
   @column()
@@ -41,6 +36,9 @@ export default class User extends BaseModel {
 
   @column()
   public rememberMeToken: string | null
+
+  @column()
+  public dnd: boolean
 
   @column.dateTime({ autoCreate: true })
   public createdAt: DateTime
@@ -65,7 +63,7 @@ export default class User extends BaseModel {
       avatar: this.avatar,
       displayName: this.displayName,
       avatarUrl: this.avatarUrl,
-      status: this.status,
+      dnd: this.dnd,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     }

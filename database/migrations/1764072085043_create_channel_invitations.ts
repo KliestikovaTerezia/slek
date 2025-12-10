@@ -12,8 +12,6 @@ export default class ChannelInvitations extends BaseSchema {
       table.enum('status', ['pending', 'accepted', 'declined']).defaultTo('pending')
       table.timestamp('created_at', { useTz: true })
       table.timestamp('updated_at', { useTz: true })
-
-      table.unique(['channel_id', 'invited_user_id'])
     })
   }
 
