@@ -146,11 +146,11 @@
           </q-item>
         </q-menu>
 
-        <q-item v-if="notifications.length > 0">
+        <q-item v-for="(notif, index) in notifications" :key="notif.id" clickable>
           <q-item-section>
             <div class="notification-message row items-center justify-between">
-              <span>{{ notifications[0]?.message }}</span>
-              <q-btn flat dense round icon="close" size="xs" @click="dismissNotification" />
+              <span>{{ notif.message }}</span>
+              <q-btn flat dense round icon="close" size="xs" @click="dismissNotification(index)" />
             </div>
           </q-item-section>
         </q-item>
@@ -186,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import ProfilePicture from '../components/ProfilePicture.vue';
@@ -200,6 +200,23 @@ import { useStatusStore } from 'src/stores/status';
 import { SocketManager } from 'src/services/SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import ChannelService from 'src/services/ChannelService';
+import { useNotificationStore } from 'src/stores/notifications';
+
+const notificationStore = useNotificationStore();
+void notificationStore.init();
+
+const notifications = computed(() => notificationStore.notifications);
+
+function dismissNotification(index: number) {
+  void notificationStore.dismiss(index);
+}
+onMounted(() => {
+  void notificationStore.loadNotifications();
+});
+
+// function dismissNotification() {
+//   notifications.value.shift();
+// }
 
 //do not disturb
 const doNotDisturb = ref(false);
@@ -300,10 +317,6 @@ const updateStatus = async () => {
 // RESPONSIVE DRAWER
 const drawerWidth = computed(() => ($q.screen.xs ? $q.screen.width : 350));
 
-function dismissNotification() {
-  notifications.value.shift();
-}
-
 const uploadedAvatar = computed(() => {
   return authStore.user?.avatar || undefined;
 });
@@ -355,9 +368,6 @@ function handleNotifyToggle(value: boolean) {
 
 // SHOW ELEMENTS ONLY ON CHAT PAGE
 const isChatPage = computed(() => route.path === '/channels');
-
-// NOTIFICATIONS
-const notifications = ref([{ message: 'This channel has been inactive for 30 days...' }]);
 
 // MENU STATES
 const rightDrawerOpen = ref(false);
