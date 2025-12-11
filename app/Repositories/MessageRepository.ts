@@ -3,6 +3,7 @@ import type {
   SerializedMessage,
 } from "@ioc:Repositories/MessageRepository";
 import Channel from "App/Models/Channel";
+import { DateTime } from 'luxon';
 
 export default class MessageRepository implements MessageRepositoryContract {
   public async getAll(channelName: string): Promise<SerializedMessage[]> {
@@ -22,11 +23,15 @@ export default class MessageRepository implements MessageRepositoryContract {
     content: string
   ): Promise<SerializedMessage> {
     const channel = await Channel.findByOrFail("name", channelName);
+
+    channel.updatedAt = DateTime.now();
+    await channel.save();
+
     const message = await channel
       .related("messages")
       .create({ createdBy: userId, content });
-    await message.load("author");
 
+    await message.load("author");
     return message.serialize() as SerializedMessage;
   }
 }
