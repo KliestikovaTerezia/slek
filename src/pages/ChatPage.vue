@@ -507,24 +507,43 @@
     </q-dialog>
 
     <!-- typing users dialog -->
-    <q-dialog v-model="showTypingUsersDialog" position="standard">
+    <q-dialog
+      v-model="showTypingUsersDialog"
+      position="standard"
+      @hide="selectedTypingMember = null"
+    >
       <q-card style="min-width: 300px; max-width: 360px">
-        <!-- HEADER -->
         <q-card-section class="row items-center justify-between q-pb-sm">
+          <q-btn
+            v-if="selectedTypingMember"
+            flat
+            dense
+            round
+            icon="arrow_back"
+            @click="selectedTypingMember = null"
+            class="q-mr-sm"
+          />
           <div class="text-subtitle1">
-            Currently typing
-            <span class="text-grey-6 q-ml-xs"> ({{ typingMembers.length }}) </span>
+            <span v-if="!selectedTypingMember">
+              Currently typing
+              <span class="text-grey-6 q-ml-xs"> ({{ typingMembers.length }}) </span>
+            </span>
           </div>
-
           <q-btn flat dense round icon="close" v-close-popup />
         </q-card-section>
 
         <q-separator />
 
-        <!-- BODY -->
         <q-card-section style="max-height: 280px; overflow-y: auto">
-          <q-list separator>
-            <q-item v-for="member in typingMembers" :key="member.id" clickable v-ripple>
+          <!-- LIST TYPING USERS -->
+          <q-list v-if="!selectedTypingMember" separator>
+            <q-item
+              clickable
+              @click="selectedTypingMember = member"
+              v-for="member in typingMembers"
+              :key="member.id"
+              v-ripple
+            >
               <q-item-section avatar>
                 <div class="relative-position">
                   <ProfilePicture :avatar="member.avatar" size="40px" bgColor="grey-3" />
@@ -536,9 +555,7 @@
               </q-item-section>
 
               <q-item-section>
-                <div class="text-body1">
-                  {{ member.name }}
-                </div>
+                <div class="text-body1">{{ member.name }}</div>
                 <div class="text-caption text-grey-6">typing…</div>
               </q-item-section>
             </q-item>
@@ -550,6 +567,14 @@
               </q-item-section>
             </q-item>
           </q-list>
+
+          <!-- DETAIL SELECTED MEMBER -->
+          <div v-else>
+            <div class="text-body1 q-mb-sm">{{ selectedTypingMember.name }}</div>
+            <div class="q-pa-sm bg-grey-2 rounded-borders" style="white-space: pre-wrap">
+              {{ selectedTypingMember.typingText }}
+            </div>
+          </div>
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -1642,7 +1667,7 @@ const sendMessage = async () => {
     if (isCurrentlyTyping) {
       isCurrentlyTyping = false;
       // if (typingTimer) clearTimeout(typingTimer);
-      emitTyping(false);
+      emitTyping({ typing: false });
     }
   }
 };
@@ -1651,25 +1676,39 @@ const sendMessage = async () => {
 // let typingTimer: ReturnType<typeof setTimeout> | null = null;
 // const TYPING_DELAY = 7000; // po kolkych seconds poslat stopped typing ak nepise
 let isCurrentlyTyping = false;
-const typingUsers = ref<Record<string, { nickname: string }>>({});
+const typingUsers = ref<
+  Record<
+    string,
+    {
+      nickname: string;
+      text: string;
+    }
+  >
+>({});
 const showTypingUsersDialog = ref(false);
 
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
-}
+const typingMembers = computed(() => {
+  return Object.keys(typingUsers.value)
+    .map((nickname) => {
+      const member = channelMembers.value.find((m) => m.name === nickname);
+      if (!member) return null;
+
+      return {
+        ...member, // obsahuje id, status, name, avatar
+        typingText: typingUsers.value[nickname].text,
+      };
+    })
+    .filter((m): m is (typeof channelMembers.value)[number] & { typingText: string } => m !== null);
+});
 
 const typingAvatars = computed(() => {
   return typingMembers.value.slice(0, 3).map((member) => ({
     nickname: member.name,
-    avatar: member.avatar,
+    avatar: member.avatar || '',
   }));
 });
 
-const typingMembers = computed(() => {
-  return Object.keys(typingUsers.value)
-    .map((nickname) => channelMembers.value.find((m) => m.name === nickname))
-    .filter(isDefined);
-});
+const selectedTypingMember = ref<null | (typeof typingMembers.value)[number]>(null);
 
 const hasTypingUsers = computed(() => typingMembers.value.length > 0);
 
@@ -1678,16 +1717,26 @@ const handleTypingStart = () => {
   if (isCurrentlyTyping) return;
 
   isCurrentlyTyping = true;
-  emitTyping(true);
+  emitTyping({ typing: true, text: newMessage.value });
 };
 
 const handleTyping = () => {
   if (!activeChannel.value || isOffline.value) return;
 
-  // Ak ešte nebeží timer, spusti "started typing"
   if (!isCurrentlyTyping) {
     isCurrentlyTyping = true;
-    emitTyping(true);
+  }
+
+  // send typing with current text
+  if (activeChannel.value) {
+    const socket = channelService.in(activeChannel.value.name);
+    if (socket && socket.socket.connected) {
+      // user is typing
+      socket.sendTyping({
+        typing: true,
+        text: newMessage.value,
+      });
+    }
   }
 };
 
@@ -1695,27 +1744,44 @@ const handleTypingStop = () => {
   // Ak stratí focus (napr. klikne preč), okamžite pošli stop
   if (isCurrentlyTyping) {
     isCurrentlyTyping = false;
-    emitTyping(false);
+    if (activeChannel.value) {
+      const socket = channelService.in(activeChannel.value.name);
+      if (socket && socket.socket.connected) {
+        // user is typing
+        socket.sendTyping({
+          typing: false,
+        });
+      }
+    }
   }
 };
+interface TypingPayload {
+  typing: boolean;
+  text?: string;
+}
 
-// Funkcia, ktorá pošle typing event cez socket
-const emitTyping = (typing: boolean) => {
+const emitTyping = (payload: TypingPayload) => {
   if (!activeChannel.value) return;
 
   const socket = channelService.in(activeChannel.value.name);
   if (!socket || !socket.socket.connected) return;
 
-  void socket.sendTyping(typing); // ← nová metóda
+  void socket.sendTyping(payload);
 };
 
-const handleUserTyping = (payload: { nickname: string; typing: boolean }) => {
-  const { nickname, typing } = payload;
-
-  if (typing) {
-    typingUsers.value[nickname] = { nickname };
+const handleUserTyping = (payload: { nickname: string; typing: boolean; text?: string }) => {
+  if (payload.typing) {
+    typingUsers.value = {
+      ...typingUsers.value, // dôležité, aby Vue zaregistrovalo zmenu
+      [payload.nickname]: {
+        nickname: payload.nickname,
+        text: payload.text || '',
+      },
+    };
   } else {
-    delete typingUsers.value[nickname];
+    const copy = { ...typingUsers.value };
+    delete copy[payload.nickname];
+    typingUsers.value = copy;
   }
 };
 
@@ -1742,7 +1808,7 @@ watch(activeChannel, (newChannel, oldChannel) => {
 
 onUnmounted(() => {
   if (isCurrentlyTyping && activeChannel.value) {
-    emitTyping(false);
+    emitTyping({ typing: false });
   }
   if (activeChannel.value) {
     const socket = channelService.in(activeChannel.value.name);

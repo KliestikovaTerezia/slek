@@ -56,10 +56,6 @@
             </template>
           </q-input>
 
-          <div>
-            <span class="forgot-link" @click="onForgotPassword">Forgot password?</span>
-          </div>
-
           <q-btn
             type="submit"
             label="Log in"
@@ -120,10 +116,6 @@ const goToRegister = () => {
   void router.push({ name: 'register' });
 };
 
-const onForgotPassword = () => {
-  console.log('Forgot password clicked — page not implemented yet');
-};
-
 // const askForNotificationPermission = async () => {
 //   const granted = await NotificationService.requestPermission();
 //   if (!granted) {
@@ -159,15 +151,5 @@ const onSubmit = async () => {
     'wght' 400,
     'GRAD' 0,
     'opsz' 48;
-}
-
-.forgot-link {
-  color: var(--q-primary);
-  cursor: pointer;
-  text-decoration: underline;
-  font-size: 14px;
-}
-.forgot-link:hover {
-  opacity: 0.8;
 }
 </style>
