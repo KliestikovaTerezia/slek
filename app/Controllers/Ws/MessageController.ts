@@ -329,6 +329,27 @@ public async getAllStatuses({ auth }: WsContextContract) {
   return statuses;
 }
 
+//typing
+public async userTyping(
+  { auth, socket }: WsContextContract,
+  payload: { typing: boolean }
+) {
+  const user = auth.user!;
+
+  // Získaj názov kanála priamo z namespace
+  const channelName = socket.nsp.name.split('/').pop(); // napr. "channels/general" → "general"
+
+  console.log(`[Server] User ${user.email} is ${payload.typing ? 'typing' : 'stopped typing'} in #${channelName}`);
+
+  // Broadcast do tohto kanála
+  socket.broadcast.to(channelName!).emit('user:typing', {
+  userId: user.id,
+  nickname: user.displayName || user.nickname || user.email.split('@')[0],
+  avatar: user.avatarUrl || "",
+  typing: payload.typing,
+});
+  //nepotrebujeme return
+}
 
 /**
  * Kontrola banu pre používateľa v danom kanáli.
