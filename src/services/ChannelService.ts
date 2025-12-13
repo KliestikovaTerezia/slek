@@ -106,6 +106,11 @@ export class ChannelSocketManager extends SocketManager {
     console.log('Posielam DND na update: ', dnd);
     return this.emitAsync('updateDnd', { dnd });
   }
+  //typing
+  public sendTyping(typing: boolean): void {
+    console.log('Sending typing:', typing ? 'started' : 'stopped');
+    this.socket.emit('typing', { typing });
+  }
 
   public async fetchAllStatuses(): Promise<void> {
     try {

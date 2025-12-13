@@ -179,31 +179,35 @@
                     </div>
                   </div>
                 </div>
-
-                <!-- Milan nam pise -->
-                <div
-                  v-if="activeChannel?.name === 'UniLife'"
-                  class="typing-message row justify-start items-end q-gutter-sm text-grey-7"
-                >
-                  <ProfilePicture
-                    :avatar="getUserByName('Milan').avatar"
-                    size="40px"
-                    bgColor="grey-3"
-                  />
-                  <div class="column items-start">
-                    <!-- meno nad správou -->
-                    <div class="message-username text-caption text-grey-6 q-mb-xs">
-                      Milan is typing ...
-                    </div>
-
-                    <!-- text správy -->
-                    <div class="bg-grey-2 q-pa-sm rounded-borders">
-                      Caute prosim kde najdem github r|
-                    </div>
-                  </div>
-                </div>
               </q-infinite-scroll>
             </q-scroll-area>
+            <!-- DYNAMICKÝ TYPING INDIKÁTOR -->
+            <div v-if="typingIndicator" class="q-pl-md q-pr-md q-mb-sm">
+              <div class="row justify-start items-end q-gutter-sm text-grey-7">
+                <!-- Avatar – zobrazíme len ak je práve 1 človek typing (pre viac ľudí nie je potrebné) -->
+                <ProfilePicture
+                  v-if="hasSingleTyper"
+                  :avatar="getTypingUserAvatar()"
+                  size="40px"
+                  bgColor="grey-3"
+                  class="q-mr-sm"
+                />
+
+                <!-- Prázdny placeholder pre zarovnanie, ak je viac typerov -->
+                <div v-else style="width: 48px"></div>
+
+                <div class="column items-start">
+                  <div class="text-caption text-grey-6 q-mb-xs">
+                    {{ typingIndicator }}
+                  </div>
+
+                  <!-- Animované tri bodky (voliteľné, ale pekné) -->
+                  <div class="bg-grey-3 q-pa-sm rounded-borders typing-dots">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <!-- ak nie je vybrate nic -->
           <div v-else class="flex flex-center col text-grey" style="flex: 1; text-align: center">
@@ -240,6 +244,10 @@
                 maxlength="1000"
                 class="col"
                 @keyup.enter="sendMessage"
+                @input="handleTyping"
+                @keydown="handleTyping"
+                @focus="handleTypingStart"
+                @blur="handleTypingStop"
               />
               <q-btn color="primary" label="Send" class="q-ml-sm" @click="sendMessage" />
             </div>
@@ -505,7 +513,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, watch, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import ProfilePicture from '../components/ProfilePicture.vue';
 // import ChatNotification from '../components/ChatNotification.vue';
@@ -1585,8 +1593,156 @@ const sendMessage = async () => {
     systemMessage.value = 'Failed to send message';
   } finally {
     newMessage.value = '';
+
+    // Po odoslani spravy poali, ze si prestal pisat
+    if (isCurrentlyTyping) {
+      isCurrentlyTyping = false;
+      if (typingTimer) clearTimeout(typingTimer);
+      emitTyping(false);
+    }
   }
 };
+
+//typing
+let typingTimer: ReturnType<typeof setTimeout> | null = null;
+const TYPING_DELAY = 7000; // po koľkých ms neaktivity pošleme "stopped typing"
+let isCurrentlyTyping = false;
+const typingUsers = ref<Record<string, { nickname: string; timer: ReturnType<typeof setTimeout> }>>(
+  {},
+);
+
+const handleTypingStart = () => {
+  if (!activeChannel.value || isOffline.value) return;
+  if (isCurrentlyTyping) return;
+
+  isCurrentlyTyping = true;
+  emitTyping(true);
+};
+
+const handleTyping = () => {
+  if (!activeChannel.value || isOffline.value) return;
+
+  // Ak ešte nebeží timer, spusti "started typing"
+  if (!isCurrentlyTyping) {
+    isCurrentlyTyping = true;
+    emitTyping(true);
+  }
+
+  // Resetuj timer – ak používateľ stále píše, odložíme "stopped"
+  if (typingTimer) clearTimeout(typingTimer);
+
+  typingTimer = setTimeout(() => {
+    isCurrentlyTyping = false;
+    emitTyping(false);
+  }, TYPING_DELAY);
+};
+
+const handleTypingStop = () => {
+  // Ak stratí focus (napr. klikne preč), okamžite pošli stop
+  if (isCurrentlyTyping) {
+    isCurrentlyTyping = false;
+    if (typingTimer) clearTimeout(typingTimer);
+    emitTyping(false);
+  }
+};
+
+// Funkcia, ktorá pošle typing event cez socket
+const emitTyping = (typing: boolean) => {
+  if (!activeChannel.value) return;
+
+  const socket = channelService.in(activeChannel.value.name);
+  if (!socket || !socket.socket.connected) return;
+
+  void socket.sendTyping(typing); // ← nová metóda
+};
+
+const typingIndicator = computed(() => {
+  const users = Object.values(typingUsers.value)
+    .map((u) => u.nickname)
+    .filter(Boolean);
+
+  if (users.length === 0) return '';
+  if (users.length === 1) return `${users[0]} is typing...`;
+  if (users.length === 2) return `${users[0]} and ${users[1]} are typing...`;
+  return `${users.length} people are typing...`;
+});
+
+const handleUserTyping = (payload: { nickname: string; typing: boolean }) => {
+  console.log('RECEIVED user:typing event:', payload);
+  const nickname = payload.nickname;
+
+  if (payload.typing) {
+    // Ak už má timer, zruš ho
+    if (typingUsers.value[nickname]) {
+      clearTimeout(typingUsers.value[nickname].timer);
+    }
+
+    // Spusti nový timer na 5 sekúnd (ak nepríde stop, zmizne)
+    const timer = setTimeout(() => {
+      delete typingUsers.value[nickname];
+    }, 5000);
+
+    typingUsers.value[nickname] = { nickname, timer };
+  } else {
+    // Ak prišiel stop, okamžite odstráň
+    if (typingUsers.value[nickname]) {
+      clearTimeout(typingUsers.value[nickname].timer);
+      delete typingUsers.value[nickname];
+    }
+  }
+};
+
+const getTypingUserAvatar = () => {
+  if (!typingUsers.value || typeof typingUsers.value !== 'object') {
+    return undefined;
+  }
+
+  const keys = Object.keys(typingUsers.value);
+  if (keys.length === 0) return undefined;
+
+  const typingNick = keys[0];
+  const user = getUserByName(typingNick);
+  return user?.avatar || undefined;
+};
+
+const hasSingleTyper = computed(() => {
+  return typingUsers.value && Object.keys(typingUsers.value).length === 1;
+});
+
+watch(activeChannel, (newChannel, oldChannel) => {
+  // Odpoj starý listener
+  if (oldChannel) {
+    const oldSocket = channelService.in(oldChannel.name);
+    if (oldSocket) {
+      oldSocket.socket.off('user:typing', handleUserTyping);
+    }
+    // Vyčisti typing pre starý kanál
+    typingUsers.value = {};
+  }
+
+  // Pripoj nový
+  if (newChannel) {
+    const socket = channelService.in(newChannel.name);
+    if (socket) {
+      console.log('Registering typing listener for channel:', newChannel.name);
+      socket.socket.on('user:typing', handleUserTyping);
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (typingTimer) clearTimeout(typingTimer);
+  // Ak si bol v kanáli a odišiel si, pošli stop
+  if (isCurrentlyTyping && activeChannel.value) {
+    emitTyping(false);
+  }
+  if (activeChannel.value) {
+    const socket = channelService.in(activeChannel.value.name);
+    if (socket) {
+      socket.socket.off('user:typing', handleUserTyping);
+    }
+  }
+});
 </script>
 
 <style scoped>
@@ -1669,14 +1825,40 @@ const sendMessage = async () => {
 .friends-list-content {
   z-index: 1;
 }
-.typing-message {
-  position: absolute;
-  bottom: 10px;
-  left: 12px;
+.typing-dots {
   display: flex;
+  gap: 4px;
+  padding: 8px 12px;
 }
-.typing-text {
-  color: #666;
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  background-color: #999;
+  border-radius: 50%;
+  display: inline-block;
+  animation: typingBounce 1.4s infinite ease-in-out both;
+}
+
+.typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+.typing-dots span:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes typingBounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
 }
 .dnd-emoji {
   position: absolute;
