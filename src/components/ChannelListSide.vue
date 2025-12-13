@@ -46,7 +46,11 @@
   </div>
 
   <!-- Channels panel pre veľké obrazovky -->
-  <div v-else-if="showChannels" class="col-auto bg-yellow-1 q-pa-sm" style="width: 250px">
+  <div
+    v-else-if="!isSmallScreen && showChannels"
+    class="col-auto bg-yellow-1 q-pa-sm"
+    style="width: 250px"
+  >
     <q-list bordered class="channels-list-scrollable">
       <q-item-label header>
         <div class="row items-center">
@@ -123,7 +127,7 @@ const emit = defineEmits<{
 }>();
 
 // lokálna kópia pre v-model v dialogu
-const localShowChannels = ref(props.showChannels);
+const localShowChannels = ref(false);
 
 // sync s props
 watch(

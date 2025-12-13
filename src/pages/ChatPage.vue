@@ -156,7 +156,7 @@
                     <div v-else style="width: 48px">
                       <!-- prazdny div na zarovnanie s avatarom -->
                     </div>
-                    <div class="column items-start">
+                    <div class="column items-start" style="flex: 1; min-width: 0">
                       <div
                         v-if="index === 0 || visibleMessages[index - 1].user !== msg.user"
                         class="text-caption text-grey-6 q-mb-xs"
@@ -1833,7 +1833,7 @@ onUnmounted(() => {
 .other-message {
   background: #f5f5f5;
   color: black;
-  max-width: 700px;
+  max-width: 70%;
 }
 
 .q-pa-sm.rounded-borders {
