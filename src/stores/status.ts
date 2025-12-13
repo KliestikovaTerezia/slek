@@ -3,6 +3,7 @@ import type { UserStatusType } from 'src/types/UserStatus';
 import GlobalSocketService from 'src/services/GlobalService';
 import { useAuthStore } from './auth';
 import { statusMap } from 'src/types/UserStatus';
+import { api } from 'src/boot/axios';
 
 export const useStatusStore = defineStore('status', {
   state: () => ({
@@ -70,6 +71,23 @@ export const useStatusStore = defineStore('status', {
 
     setMyStatus(newStatus: UserStatusType) {
       this.myStatus = newStatus;
+    },
+    async fetchMyDnd() {
+      try {
+        const response = await api.get<{ dnd: number }>('/api/users/dnd'); // ← number, nie boolean
+        const authStore = useAuthStore();
+        const myNickname = authStore.user?.nickname || 'me';
+
+        // Teraz je porovnanie v poriadku
+        this.userDnds[myNickname] = response.data.dnd === 1;
+
+        console.log('Loaded my DND from DB:', response.data.dnd);
+      } catch (err) {
+        console.error('Failed to fetch my DND state:', err);
+      }
+    },
+    getMyDnd(nickname: string) {
+      return this.userDnds[nickname] ?? false;
     },
   },
 });

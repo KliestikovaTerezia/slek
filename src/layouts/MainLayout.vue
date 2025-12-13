@@ -202,6 +202,18 @@ import { useChannelsStore } from 'src/stores/channels';
 import ChannelService from 'src/services/ChannelService';
 import { useNotificationStore } from 'src/stores/notifications';
 
+//do not disturb
+const doNotDisturb = computed({
+  get: () => statusStore.getMyDnd(authStore.user?.nickname || ''),
+  set: (value: boolean) => {
+    // okamžitá update store + socket
+    statusStore.userDnds[authStore.user?.nickname || ''] = value;
+
+    const general = ChannelService.in('general') || ChannelService.join('general');
+    void general.updateDnd(value); // void aby nevyhadzovalo warning
+  },
+});
+
 const notificationStore = useNotificationStore();
 void notificationStore.init();
 
@@ -210,16 +222,32 @@ const notifications = computed(() => notificationStore.notifications);
 function dismissNotification(index: number) {
   void notificationStore.dismiss(index);
 }
-onMounted(() => {
+onMounted(async () => {
   void notificationStore.loadNotifications();
+
+  const nickname = authStore.user?.nickname;
+  if (!nickname) return;
+
+  try {
+    // Tu zavoláš fetch z DB, alebo použiješ pinia store
+    await statusStore.fetchMyDnd(); // async funkcia, ktorá uloží do statusStore.userDnds
+
+    let general = ChannelService.in('general');
+    if (!general) {
+      general = ChannelService.join('general');
+    }
+    await general.fetchAllStatuses();
+    await general.fetchAllDnds();
+    doNotDisturb.value = statusStore.userDnds[nickname] ?? false;
+  } catch (err) {
+    console.error('Failed to fetch my DND state:', err);
+  }
 });
 
 // function dismissNotification() {
 //   notifications.value.shift();
 // }
 
-//do not disturb
-const doNotDisturb = ref(false);
 // ...
 const channelsStore = useChannelsStore();
 const statusStore = useStatusStore();

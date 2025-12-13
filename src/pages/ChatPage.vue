@@ -122,7 +122,7 @@
                 <div v-if="isLoadingMore" class="flex justify-center q-my-sm">
                   <q-spinner size="24px" color="primary" />
                 </div>
-                <div v-for="msg in visibleMessages" :key="msg.id" class="q-mb-sm">
+                <div v-for="(msg, index) in visibleMessages" :key="msg.id" class="q-mb-sm">
                   <!-- nasa sprava je napravo a zlta -->
                   <div v-if="isMyMessage(msg)" class="row justify-end">
                     <div class="my-message q-pa-sm rounded-borders">
@@ -132,7 +132,13 @@
 
                   <!-- CUDZIA SPRÁVA → NA ĽAVO -->
                   <div v-else class="row justify-start items-end q-gutter-sm">
-                    <div class="relative-position">
+                    <div
+                      v-if="
+                        index === visibleMessages.length - 1 ||
+                        visibleMessages[index + 1].user !== msg.user
+                      "
+                      class="relative-position"
+                    >
                       <ProfilePicture
                         :avatar="getUserByName(msg.user).avatar"
                         size="40px"
@@ -147,8 +153,14 @@
                         🏖️
                       </div>
                     </div>
+                    <div v-else style="width: 48px">
+                      <!-- prazdny div na zarovnanie s avatarom -->
+                    </div>
                     <div class="column items-start">
-                      <div class="text-caption text-grey-6 q-mb-xs">
+                      <div
+                        v-if="index === 0 || visibleMessages[index - 1].user !== msg.user"
+                        class="text-caption text-grey-6 q-mb-xs"
+                      >
                         {{ msg.user }}
                       </div>
 
