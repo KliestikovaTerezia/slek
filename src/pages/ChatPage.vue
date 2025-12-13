@@ -182,30 +182,27 @@
               </q-infinite-scroll>
             </q-scroll-area>
             <!-- DYNAMICKÝ TYPING INDIKÁTOR -->
-            <div v-if="typingIndicator" class="q-pl-md q-pr-md q-mb-sm">
-              <div class="row justify-start items-end q-gutter-sm text-grey-7">
-                <!-- Avatar – zobrazíme len ak je práve 1 človek typing (pre viac ľudí nie je potrebné) -->
-                <ProfilePicture
-                  v-if="hasSingleTyper"
-                  :avatar="getTypingUserAvatar()"
-                  size="40px"
-                  bgColor="grey-3"
-                  class="q-mr-sm"
-                />
-
-                <!-- Prázdny placeholder pre zarovnanie, ak je viac typerov -->
-                <div v-else style="width: 48px"></div>
-
-                <div class="column items-start">
-                  <div class="text-caption text-grey-6 q-mb-xs">
-                    {{ typingIndicator }}
-                  </div>
-
-                  <!-- Animované tri bodky (voliteľné, ale pekné) -->
-                  <div class="bg-grey-3 q-pa-sm rounded-borders typing-dots">
-                    <span></span><span></span><span></span>
-                  </div>
+            <div
+              v-if="hasTypingUsers"
+              class="q-pl-md q-pr-md q-mb-sm cursor-pointer"
+              @click="showTypingUsersDialog = true"
+            >
+              <div class="row items-center no-wrap">
+                <!-- AVATARY -->
+                <div class="typing-avatars">
+                  <ProfilePicture
+                    v-for="(user, index) in typingAvatars"
+                    :key="user.nickname"
+                    :avatar="user.avatar"
+                    size="32px"
+                    bgColor="grey-3"
+                    class="typing-avatar"
+                    :style="{ zIndex: 10 - index }"
+                  />
                 </div>
+
+                <!-- TRI BODKY -->
+                <div class="typing-dots q-ml-sm"><span></span><span></span><span></span></div>
               </div>
             </div>
           </div>
@@ -245,7 +242,6 @@
                 class="col"
                 @keyup.enter="sendMessage"
                 @input="handleTyping"
-                @keydown="handleTyping"
                 @focus="handleTypingStart"
                 @blur="handleTypingStop"
               />
@@ -507,6 +503,54 @@
           <q-btn flat label="Cancel" color="black" v-close-popup />
           <q-btn flat label="Vote Kick" color="warning" @click="kickPeopleFromChannel" />
         </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- typing users dialog -->
+    <q-dialog v-model="showTypingUsersDialog" position="standard">
+      <q-card style="min-width: 300px; max-width: 360px">
+        <!-- HEADER -->
+        <q-card-section class="row items-center justify-between q-pb-sm">
+          <div class="text-subtitle1">
+            Currently typing
+            <span class="text-grey-6 q-ml-xs"> ({{ typingMembers.length }}) </span>
+          </div>
+
+          <q-btn flat dense round icon="close" v-close-popup />
+        </q-card-section>
+
+        <q-separator />
+
+        <!-- BODY -->
+        <q-card-section style="max-height: 280px; overflow-y: auto">
+          <q-list separator>
+            <q-item v-for="member in typingMembers" :key="member.id" clickable v-ripple>
+              <q-item-section avatar>
+                <div class="relative-position">
+                  <ProfilePicture :avatar="member.avatar" size="40px" bgColor="grey-3" />
+                  <div
+                    class="status-indicator"
+                    :style="{ backgroundColor: getMemberStatusObj(member.name).color }"
+                  />
+                </div>
+              </q-item-section>
+
+              <q-item-section>
+                <div class="text-body1">
+                  {{ member.name }}
+                </div>
+                <div class="text-caption text-grey-6">typing…</div>
+              </q-item-section>
+            </q-item>
+
+            <!-- EMPTY STATE -->
+            <q-item v-if="!typingMembers.length">
+              <q-item-section class="text-grey-6 text-center">
+                Nobody is typing right now
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card-section>
       </q-card>
     </q-dialog>
   </q-page>
@@ -1597,19 +1641,37 @@ const sendMessage = async () => {
     // Po odoslani spravy poali, ze si prestal pisat
     if (isCurrentlyTyping) {
       isCurrentlyTyping = false;
-      if (typingTimer) clearTimeout(typingTimer);
+      // if (typingTimer) clearTimeout(typingTimer);
       emitTyping(false);
     }
   }
 };
 
-//typing
-let typingTimer: ReturnType<typeof setTimeout> | null = null;
-const TYPING_DELAY = 7000; // po koľkých ms neaktivity pošleme "stopped typing"
+//typing - teraz dajme bez timera, proste ked si v command line tak pises
+// let typingTimer: ReturnType<typeof setTimeout> | null = null;
+// const TYPING_DELAY = 7000; // po kolkych seconds poslat stopped typing ak nepise
 let isCurrentlyTyping = false;
-const typingUsers = ref<Record<string, { nickname: string; timer: ReturnType<typeof setTimeout> }>>(
-  {},
-);
+const typingUsers = ref<Record<string, { nickname: string }>>({});
+const showTypingUsersDialog = ref(false);
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
+const typingAvatars = computed(() => {
+  return typingMembers.value.slice(0, 3).map((member) => ({
+    nickname: member.name,
+    avatar: member.avatar,
+  }));
+});
+
+const typingMembers = computed(() => {
+  return Object.keys(typingUsers.value)
+    .map((nickname) => channelMembers.value.find((m) => m.name === nickname))
+    .filter(isDefined);
+});
+
+const hasTypingUsers = computed(() => typingMembers.value.length > 0);
 
 const handleTypingStart = () => {
   if (!activeChannel.value || isOffline.value) return;
@@ -1627,21 +1689,12 @@ const handleTyping = () => {
     isCurrentlyTyping = true;
     emitTyping(true);
   }
-
-  // Resetuj timer – ak používateľ stále píše, odložíme "stopped"
-  if (typingTimer) clearTimeout(typingTimer);
-
-  typingTimer = setTimeout(() => {
-    isCurrentlyTyping = false;
-    emitTyping(false);
-  }, TYPING_DELAY);
 };
 
 const handleTypingStop = () => {
   // Ak stratí focus (napr. klikne preč), okamžite pošli stop
   if (isCurrentlyTyping) {
     isCurrentlyTyping = false;
-    if (typingTimer) clearTimeout(typingTimer);
     emitTyping(false);
   }
 };
@@ -1656,58 +1709,15 @@ const emitTyping = (typing: boolean) => {
   void socket.sendTyping(typing); // ← nová metóda
 };
 
-const typingIndicator = computed(() => {
-  const users = Object.values(typingUsers.value)
-    .map((u) => u.nickname)
-    .filter(Boolean);
-
-  if (users.length === 0) return '';
-  if (users.length === 1) return `${users[0]} is typing...`;
-  if (users.length === 2) return `${users[0]} and ${users[1]} are typing...`;
-  return `${users.length} people are typing...`;
-});
-
 const handleUserTyping = (payload: { nickname: string; typing: boolean }) => {
-  console.log('RECEIVED user:typing event:', payload);
-  const nickname = payload.nickname;
+  const { nickname, typing } = payload;
 
-  if (payload.typing) {
-    // Ak už má timer, zruš ho
-    if (typingUsers.value[nickname]) {
-      clearTimeout(typingUsers.value[nickname].timer);
-    }
-
-    // Spusti nový timer na 5 sekúnd (ak nepríde stop, zmizne)
-    const timer = setTimeout(() => {
-      delete typingUsers.value[nickname];
-    }, 5000);
-
-    typingUsers.value[nickname] = { nickname, timer };
+  if (typing) {
+    typingUsers.value[nickname] = { nickname };
   } else {
-    // Ak prišiel stop, okamžite odstráň
-    if (typingUsers.value[nickname]) {
-      clearTimeout(typingUsers.value[nickname].timer);
-      delete typingUsers.value[nickname];
-    }
+    delete typingUsers.value[nickname];
   }
 };
-
-const getTypingUserAvatar = () => {
-  if (!typingUsers.value || typeof typingUsers.value !== 'object') {
-    return undefined;
-  }
-
-  const keys = Object.keys(typingUsers.value);
-  if (keys.length === 0) return undefined;
-
-  const typingNick = keys[0];
-  const user = getUserByName(typingNick);
-  return user?.avatar || undefined;
-};
-
-const hasSingleTyper = computed(() => {
-  return typingUsers.value && Object.keys(typingUsers.value).length === 1;
-});
 
 watch(activeChannel, (newChannel, oldChannel) => {
   // Odpoj starý listener
@@ -1731,8 +1741,6 @@ watch(activeChannel, (newChannel, oldChannel) => {
 });
 
 onUnmounted(() => {
-  if (typingTimer) clearTimeout(typingTimer);
-  // Ak si bol v kanáli a odišiel si, pošli stop
   if (isCurrentlyTyping && activeChannel.value) {
     emitTyping(false);
   }
@@ -1825,19 +1833,41 @@ onUnmounted(() => {
 .friends-list-content {
   z-index: 1;
 }
+.typing-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.typing-avatar {
+  border-radius: 50%;
+  margin-left: -12px;
+
+  /* VIZUÁLNA ČITATEĽNOSŤ */
+  box-shadow:
+    0 0 0 2px white,
+    /* biely ring */ 0 2px 6px rgba(0, 0, 0, 0.15); /* jemný tieň */
+
+  background-color: white; /* fallback */
+}
+
+.typing-avatar:first-child {
+  margin-left: 0;
+}
+
+/* tri bodky */
 .typing-dots {
   display: flex;
-  gap: 4px;
-  padding: 8px 12px;
+  align-items: center;
+  height: 32px;
 }
 
 .typing-dots span {
-  width: 8px;
-  height: 8px;
-  background-color: #999;
+  width: 5px;
+  height: 5px;
+  margin: 0 2px;
+  background-color: #9e9e9e;
   border-radius: 50%;
-  display: inline-block;
-  animation: typingBounce 1.4s infinite ease-in-out both;
+  animation: typingBounce 1.4s infinite both;
 }
 
 .typing-dots span:nth-child(1) {
@@ -1846,18 +1876,19 @@ onUnmounted(() => {
 .typing-dots span:nth-child(2) {
   animation-delay: -0.16s;
 }
-.typing-dots span:nth-child(3) {
-  animation-delay: 0s;
-}
 
 @keyframes typingBounce {
-  0%,
-  80%,
-  100% {
-    transform: scale(0);
+  0% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  20% {
+    transform: translateY(-4px);
+    opacity: 1;
   }
   40% {
-    transform: scale(1);
+    transform: translateY(0);
+    opacity: 0.4;
   }
 }
 .dnd-emoji {
