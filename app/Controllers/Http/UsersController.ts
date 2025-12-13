@@ -22,4 +22,9 @@ export default class UsersController {
       }))
     )
   }
+
+  public async getDnd({ auth }: HttpContextContract) {
+    const user = auth.user!
+    return { dnd: user.dnd || false } // predpokladám, že máš stĺpec dnd v DB
+  }
 }
