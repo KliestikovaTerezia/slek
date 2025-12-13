@@ -18,6 +18,10 @@ export interface BanStatus {
 export interface LoadMessagesOptions {
   sinceId?: number;
 }
+export interface TypingPayload {
+  typing: boolean;
+  text?: string;
+}
 
 export class ChannelSocketManager extends SocketManager {
   private subscribed = false;
@@ -105,6 +109,15 @@ export class ChannelSocketManager extends SocketManager {
   public async updateDnd(dnd: boolean) {
     console.log('Posielam DND na update: ', dnd);
     return this.emitAsync('updateDnd', { dnd });
+  }
+  //typing
+  // public sendTyping(typing: boolean): void {
+  //   console.log('Sending typing:', typing ? 'started' : 'stopped');
+  //   this.socket.emit('typing', { typing });
+  // }
+  public sendTyping(payload: TypingPayload): void {
+    console.log('Sending typing:', payload.typing ? 'started' : 'stopped', 'text:', payload.text);
+    this.socket.emit('typing', payload);
   }
 
   public async fetchAllStatuses(): Promise<void> {

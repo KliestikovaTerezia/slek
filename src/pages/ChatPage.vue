@@ -156,7 +156,7 @@
                     <div v-else style="width: 48px">
                       <!-- prazdny div na zarovnanie s avatarom -->
                     </div>
-                    <div class="column items-start">
+                    <div class="column items-start" style="flex: 1; min-width: 0">
                       <div
                         v-if="index === 0 || visibleMessages[index - 1].user !== msg.user"
                         class="text-caption text-grey-6 q-mb-xs"
@@ -179,31 +179,32 @@
                     </div>
                   </div>
                 </div>
-
-                <!-- Milan nam pise -->
-                <div
-                  v-if="activeChannel?.name === 'UniLife'"
-                  class="typing-message row justify-start items-end q-gutter-sm text-grey-7"
-                >
-                  <ProfilePicture
-                    :avatar="getUserByName('Milan').avatar"
-                    size="40px"
-                    bgColor="grey-3"
-                  />
-                  <div class="column items-start">
-                    <!-- meno nad správou -->
-                    <div class="message-username text-caption text-grey-6 q-mb-xs">
-                      Milan is typing ...
-                    </div>
-
-                    <!-- text správy -->
-                    <div class="bg-grey-2 q-pa-sm rounded-borders">
-                      Caute prosim kde najdem github r|
-                    </div>
-                  </div>
-                </div>
               </q-infinite-scroll>
             </q-scroll-area>
+            <!-- DYNAMICKÝ TYPING INDIKÁTOR -->
+            <div
+              v-if="hasTypingUsers"
+              class="q-pl-md q-pr-md q-mb-sm cursor-pointer"
+              @click="showTypingUsersDialog = true"
+            >
+              <div class="row items-center no-wrap">
+                <!-- AVATARY -->
+                <div class="typing-avatars">
+                  <ProfilePicture
+                    v-for="(user, index) in typingAvatars"
+                    :key="user.nickname"
+                    :avatar="user.avatar"
+                    size="32px"
+                    bgColor="grey-3"
+                    class="typing-avatar"
+                    :style="{ zIndex: 10 - index }"
+                  />
+                </div>
+
+                <!-- TRI BODKY -->
+                <div class="typing-dots q-ml-sm"><span></span><span></span><span></span></div>
+              </div>
+            </div>
           </div>
           <!-- ak nie je vybrate nic -->
           <div v-else class="flex flex-center col text-grey" style="flex: 1; text-align: center">
@@ -240,6 +241,9 @@
                 maxlength="1000"
                 class="col"
                 @keyup.enter="sendMessage"
+                @input="handleTyping"
+                @focus="handleTypingStart"
+                @blur="handleTypingStop"
               />
               <q-btn color="primary" label="Send" class="q-ml-sm" @click="sendMessage" />
             </div>
@@ -501,11 +505,84 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- typing users dialog -->
+    <q-dialog
+      v-model="showTypingUsersDialog"
+      position="standard"
+      @hide="selectedTypingMember = null"
+    >
+      <q-card style="min-width: 300px; max-width: 360px">
+        <q-card-section class="row items-center justify-between q-pb-sm">
+          <q-btn
+            v-if="selectedTypingMember"
+            flat
+            dense
+            round
+            icon="arrow_back"
+            @click="selectedTypingMember = null"
+            class="q-mr-sm"
+          />
+          <div class="text-subtitle1">
+            <span v-if="!selectedTypingMember">
+              Currently typing
+              <span class="text-grey-6 q-ml-xs"> ({{ typingMembers.length }}) </span>
+            </span>
+          </div>
+          <q-btn flat dense round icon="close" v-close-popup />
+        </q-card-section>
+
+        <q-separator />
+
+        <q-card-section style="max-height: 280px; overflow-y: auto">
+          <!-- LIST TYPING USERS -->
+          <q-list v-if="!selectedTypingMember" separator>
+            <q-item
+              clickable
+              @click="selectedTypingMember = member"
+              v-for="member in typingMembers"
+              :key="member.id"
+              v-ripple
+            >
+              <q-item-section avatar>
+                <div class="relative-position">
+                  <ProfilePicture :avatar="member.avatar" size="40px" bgColor="grey-3" />
+                  <div
+                    class="status-indicator"
+                    :style="{ backgroundColor: getMemberStatusObj(member.name).color }"
+                  />
+                </div>
+              </q-item-section>
+
+              <q-item-section>
+                <div class="text-body1">{{ member.name }}</div>
+                <div class="text-caption text-grey-6">typing…</div>
+              </q-item-section>
+            </q-item>
+
+            <!-- EMPTY STATE -->
+            <q-item v-if="!typingMembers.length">
+              <q-item-section class="text-grey-6 text-center">
+                Nobody is typing right now
+              </q-item-section>
+            </q-item>
+          </q-list>
+
+          <!-- DETAIL SELECTED MEMBER -->
+          <div v-else>
+            <div class="text-body1 q-mb-sm">{{ selectedTypingMember.name }}</div>
+            <div class="q-pa-sm bg-grey-2 rounded-borders" style="white-space: pre-wrap">
+              {{ selectedTypingMember.typingText }}
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, watch, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import ProfilePicture from '../components/ProfilePicture.vue';
 // import ChatNotification from '../components/ChatNotification.vue';
@@ -1585,8 +1662,161 @@ const sendMessage = async () => {
     systemMessage.value = 'Failed to send message';
   } finally {
     newMessage.value = '';
+
+    // Po odoslani spravy poali, ze si prestal pisat
+    if (isCurrentlyTyping) {
+      isCurrentlyTyping = false;
+      // if (typingTimer) clearTimeout(typingTimer);
+      emitTyping({ typing: false });
+    }
   }
 };
+
+//typing - teraz dajme bez timera, proste ked si v command line tak pises
+// let typingTimer: ReturnType<typeof setTimeout> | null = null;
+// const TYPING_DELAY = 7000; // po kolkych seconds poslat stopped typing ak nepise
+let isCurrentlyTyping = false;
+const typingUsers = ref<
+  Record<
+    string,
+    {
+      nickname: string;
+      text: string;
+    }
+  >
+>({});
+const showTypingUsersDialog = ref(false);
+
+const typingMembers = computed(() => {
+  return Object.keys(typingUsers.value)
+    .map((nickname) => {
+      const member = channelMembers.value.find((m) => m.name === nickname);
+      if (!member) return null;
+
+      return {
+        ...member, // obsahuje id, status, name, avatar
+        typingText: typingUsers.value[nickname].text,
+      };
+    })
+    .filter((m): m is (typeof channelMembers.value)[number] & { typingText: string } => m !== null);
+});
+
+const typingAvatars = computed(() => {
+  return typingMembers.value.slice(0, 3).map((member) => ({
+    nickname: member.name,
+    avatar: member.avatar || '',
+  }));
+});
+
+const selectedTypingMember = ref<null | (typeof typingMembers.value)[number]>(null);
+
+const hasTypingUsers = computed(() => typingMembers.value.length > 0);
+
+const handleTypingStart = () => {
+  if (!activeChannel.value || isOffline.value) return;
+  if (isCurrentlyTyping) return;
+
+  isCurrentlyTyping = true;
+  emitTyping({ typing: true, text: newMessage.value });
+};
+
+const handleTyping = () => {
+  if (!activeChannel.value || isOffline.value) return;
+
+  if (!isCurrentlyTyping) {
+    isCurrentlyTyping = true;
+  }
+
+  // send typing with current text
+  if (activeChannel.value) {
+    const socket = channelService.in(activeChannel.value.name);
+    if (socket && socket.socket.connected) {
+      // user is typing
+      socket.sendTyping({
+        typing: true,
+        text: newMessage.value,
+      });
+    }
+  }
+};
+
+const handleTypingStop = () => {
+  // Ak stratí focus (napr. klikne preč), okamžite pošli stop
+  if (isCurrentlyTyping) {
+    isCurrentlyTyping = false;
+    if (activeChannel.value) {
+      const socket = channelService.in(activeChannel.value.name);
+      if (socket && socket.socket.connected) {
+        // user is typing
+        socket.sendTyping({
+          typing: false,
+        });
+      }
+    }
+  }
+};
+interface TypingPayload {
+  typing: boolean;
+  text?: string;
+}
+
+const emitTyping = (payload: TypingPayload) => {
+  if (!activeChannel.value) return;
+
+  const socket = channelService.in(activeChannel.value.name);
+  if (!socket || !socket.socket.connected) return;
+
+  void socket.sendTyping(payload);
+};
+
+const handleUserTyping = (payload: { nickname: string; typing: boolean; text?: string }) => {
+  if (payload.typing) {
+    typingUsers.value = {
+      ...typingUsers.value, // dôležité, aby Vue zaregistrovalo zmenu
+      [payload.nickname]: {
+        nickname: payload.nickname,
+        text: payload.text || '',
+      },
+    };
+  } else {
+    const copy = { ...typingUsers.value };
+    delete copy[payload.nickname];
+    typingUsers.value = copy;
+  }
+};
+
+watch(activeChannel, (newChannel, oldChannel) => {
+  // Odpoj starý listener
+  if (oldChannel) {
+    const oldSocket = channelService.in(oldChannel.name);
+    if (oldSocket) {
+      oldSocket.socket.off('user:typing', handleUserTyping);
+    }
+    // Vyčisti typing pre starý kanál
+    typingUsers.value = {};
+  }
+
+  // Pripoj nový
+  if (newChannel) {
+    const socket = channelService.in(newChannel.name);
+    if (socket) {
+      console.log('Registering typing listener for channel:', newChannel.name);
+      socket.socket.on('user:typing', handleUserTyping);
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (isCurrentlyTyping && activeChannel.value) {
+    emitTyping({ typing: false });
+  }
+  if (activeChannel.value) {
+    const socket = channelService.in(activeChannel.value.name);
+    if (socket) {
+      socket.socket.off('user:typing', handleUserTyping);
+    }
+  }
+});
 </script>
 
 <style scoped>
@@ -1603,7 +1833,7 @@ const sendMessage = async () => {
 .other-message {
   background: #f5f5f5;
   color: black;
-  max-width: 700px;
+  max-width: 70%;
 }
 
 .q-pa-sm.rounded-borders {
@@ -1669,14 +1899,63 @@ const sendMessage = async () => {
 .friends-list-content {
   z-index: 1;
 }
-.typing-message {
-  position: absolute;
-  bottom: 10px;
-  left: 12px;
+.typing-avatars {
   display: flex;
+  align-items: center;
 }
-.typing-text {
-  color: #666;
+
+.typing-avatar {
+  border-radius: 50%;
+  margin-left: -12px;
+
+  /* VIZUÁLNA ČITATEĽNOSŤ */
+  box-shadow:
+    0 0 0 2px white,
+    /* biely ring */ 0 2px 6px rgba(0, 0, 0, 0.15); /* jemný tieň */
+
+  background-color: white; /* fallback */
+}
+
+.typing-avatar:first-child {
+  margin-left: 0;
+}
+
+/* tri bodky */
+.typing-dots {
+  display: flex;
+  align-items: center;
+  height: 32px;
+}
+
+.typing-dots span {
+  width: 5px;
+  height: 5px;
+  margin: 0 2px;
+  background-color: #9e9e9e;
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite both;
+}
+
+.typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes typingBounce {
+  0% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  20% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
 }
 .dnd-emoji {
   position: absolute;
