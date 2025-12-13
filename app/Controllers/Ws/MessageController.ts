@@ -332,22 +332,24 @@ public async getAllStatuses({ auth }: WsContextContract) {
 //typing
 public async userTyping(
   { auth, socket }: WsContextContract,
-  payload: { typing: boolean }
+  payload: { typing: boolean; text?: string }  // <-- include text
 ) {
   const user = auth.user!;
+  const channelName = socket.nsp.name.split('/').pop();
 
-  // Získaj názov kanála priamo z namespace
-  const channelName = socket.nsp.name.split('/').pop(); // napr. "channels/general" → "general"
+  console.log(
+    `[Server] User ${user.email} is ${payload.typing ? 'typing' : 'stopped typing'} in #${channelName}`,
+    ',text:', payload.text
+  );
 
-  console.log(`[Server] User ${user.email} is ${payload.typing ? 'typing' : 'stopped typing'} in #${channelName}`);
-
-  // Broadcast do tohto kanála
+  // Broadcast to all other clients in the channel
   socket.broadcast.to(channelName!).emit('user:typing', {
-  userId: user.id,
-  nickname: user.displayName || user.nickname || user.email.split('@')[0],
-  avatar: user.avatarUrl || "",
-  typing: payload.typing,
-});
+    userId: user.id,
+    nickname: user.displayName || user.nickname || user.email.split('@')[0],
+    avatar: user.avatarUrl || "",
+    typing: payload.typing,
+    text: payload.text,  // <-- forward the typed text
+  });
   //nepotrebujeme return
 }
 
