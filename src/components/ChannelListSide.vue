@@ -1,5 +1,5 @@
 <template>
-  <!-- Channels zoznam ako pop-up (pre malé obrazovky) -->
+  <!-- Channels zoznam ako pop-up (pre male obrazovky) -->
   <div
     v-if="isSmallScreen && localShowChannels"
     class="channels-overlay bg-yellow-1 q-pa-sm"
@@ -45,7 +45,7 @@
     </q-list>
   </div>
 
-  <!-- Channels panel pre veľké obrazovky -->
+  <!-- Channels panel pre velke obrazovky -->
   <div
     v-else-if="!isSmallScreen && showChannels"
     class="col-auto bg-yellow-1 q-pa-sm"
@@ -126,10 +126,8 @@ const emit = defineEmits<{
   (e: 'openCreateChannelDialog'): void;
 }>();
 
-// lokálna kópia pre v-model v dialogu
 const localShowChannels = ref(false);
 
-// sync s props
 watch(
   () => props.showChannels,
   (newVal) => {
@@ -137,12 +135,12 @@ watch(
   },
 );
 
-// emit späť, keď sa zatvorí dialog
+// emit spat ked sa zatvori drawer
 watch(localShowChannels, (newVal) => {
   emit('update:showChannels', newVal);
 });
 
-// keď sa zmení veľkosť obrazovky, automaticky zavri drawer
+// ked sa meni velkost obrazovky, automaticky zavri drawer
 watch(
   () => props.isSmallScreen,
   (isSmall) => {
@@ -203,7 +201,7 @@ watch(
   overflow-y: auto;
 }
 .channels-list-scrollable {
-  max-height: calc(100vh - 32px); /* Full height minus padding */
+  max-height: calc(100vh - 32px);
   overflow-y: auto;
 }
 </style>

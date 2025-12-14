@@ -1,16 +1,14 @@
-// src/services/GlobalSocketService.ts
 import { SocketManager } from './SocketManager';
 import { useChannelsStore } from 'src/stores/channels';
 import type { Invitation, InvitationWithUserId } from 'src/types/invitation';
 import { useAuthStore } from 'src/stores/auth';
-// import { type UserStatusType } from 'src/types/UserStatus';
 
 class GlobalSocketService extends SocketManager {
   private subscribed = false;
   private invitations: Invitation[] = [];
 
   constructor() {
-    super('/'); // Root namespace
+    super('/'); // root namespace
     this.socket.connect();
   }
 
@@ -23,48 +21,6 @@ class GlobalSocketService extends SocketManager {
     return this;
   }
 
-  // 1️⃣ Emit na server – user zmenil svoj status
-  // public updateStatus(newStatus: UserStatusType): void {
-  //   console.log('HelOOOOOOOOO');
-  //   try {
-  //     console.log('[Service] emitting updateStatus to server with:', newStatus);
-  //     this.socket.emit('updateStatus', {
-  //       status: newStatus,
-  //       userId: useAuthStore().user?.id,
-  //     });
-  //   } catch (err) {
-  //     console.error('Failed to emit updateStatus:', err);
-  //   }
-  // }
-
-  // // 2️⃣ Prijímanie eventov z backendu
-  // public onStatusUpdated(
-  //   callback: (data: { userId: string | number; status: UserStatusType }) => void,
-  // ): void {
-  //   this.socket.off('user:statusUpdated'); // zrušíme predchádzajúce listener-y
-  //   this.socket.on('user:statusUpdated', callback);
-  // }
-
-  // public async sendStatus(status: UserStatusType): Promise<{
-  //   success: boolean;
-  //   status: UserStatusType;
-  // }> {
-  //   try {
-  //     console.log('[Global Service] Sending status:', status);
-
-  //     const result = await this.emitAsync('updateStatus', {
-  //       status,
-  //       userId: useAuthStore().user?.id,
-  //     });
-
-  //     console.log('[Global Service] Server response:', result);
-  //     return result as { success: boolean; status: UserStatusType };
-  //   } catch (err) {
-  //     console.error('[Global Service] Failed to send status:', err);
-  //     throw err;
-  //   }
-  // }
-
   public subscribe(): void {
     if (this.subscribed) {
       console.log('Already subscribed to global socket');
@@ -74,14 +30,13 @@ class GlobalSocketService extends SocketManager {
       console.log('Global socket CONNECTED');
 
       const authStore = useAuthStore();
-      const token = authStore.token; // make sure you store JWT in authStore after login!
+      const token = authStore.token;
 
       if (!token) {
         console.error('No token found for socket auth');
         return;
       }
 
-      // Send Bearer token (this is what Adonis expects)
       this.socket.emit('auth', {
         token: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
       });
@@ -89,7 +44,7 @@ class GlobalSocketService extends SocketManager {
       console.log('[GlobalService] Authenticated socket with Bearer token');
     });
 
-    // Listen for invitations
+    // pocivaj na invitation eventy
     this.socket.on('invitation:received', (data: InvitationWithUserId) => {
       const authStore = useAuthStore();
       if (!authStore.user) {
@@ -105,7 +60,7 @@ class GlobalSocketService extends SocketManager {
       window.dispatchEvent(new CustomEvent('invitation:received', { detail: invitation }));
     });
 
-    // Listen for user removed event
+    // pocuvaj na user removed eventy
     this.socket.on(
       'user:removed',
       (data: { userId: number; channelId: number; channelName: string; removedBy: string }) => {
@@ -131,7 +86,6 @@ class GlobalSocketService extends SocketManager {
 
   public async loadInitialInvitations(): Promise<Invitation[]> {
     try {
-      // Load from any channel socket (they all share the same backend)
       const channelStore = useChannelsStore();
       if (channelStore.channelsList.length > 0) {
         const firstChannel = channelStore.channelsList[0];

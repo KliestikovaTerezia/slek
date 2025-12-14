@@ -85,7 +85,6 @@
 import { reactive, ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from 'src/stores/auth';
-// import NotificationService from 'src/services/NotificationService';
 
 // Pinia store
 const authStore = useAuthStore();
@@ -103,39 +102,27 @@ const credentials = reactive({
 
 const isPwdVisible = ref(false);
 
-// Loading state from Pinia
 const loading = computed(() => authStore.status === 'pending');
 
-// Redirect after login
+// presmeruj po logine
 const redirectTo = computed(() => {
   return (route.query.redirect as string) || { name: 'home' };
 });
 
-// Navigation helpers
 const goToRegister = () => {
   void router.push({ name: 'register' });
 };
-
-// const askForNotificationPermission = async () => {
-//   const granted = await NotificationService.requestPermission();
-//   if (!granted) {
-//     console.warn('Notifications not allowed by user');
-//   }
-// };
 
 const errorMessage = ref('');
 const onSubmit = async () => {
   try {
     await authStore.login(credentials);
 
-    // await askForNotificationPermission();
-
     await router.push(redirectTo.value);
   } catch (err: unknown) {
     if (err instanceof Error) {
       console.error('Login failed:', err.message);
       errorMessage.value = 'Invalid email or password';
-      // tu môžeš zobraziť err.message vo notify alebo UI
     } else {
       console.error('Login failed with unknown error', err);
       errorMessage.value = 'Unknown error occurred';

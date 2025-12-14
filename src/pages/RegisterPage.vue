@@ -150,7 +150,7 @@
           </template>
         </q-input>
 
-        <!-- Tlačidlo -->
+        <!-- register btn -->
         <q-btn
           type="submit"
           label="REGISTER"
@@ -163,7 +163,7 @@
           {{ errorMessageOther }}
         </div>
 
-        <!-- Prihlásenie -->
+        <!-- prihlasenie -->
         <div class="q-mt-md text-center">
           <span>Already have an account? </span>
           <q-btn flat color="primary" :to="{ name: 'login' }">SIGN IN</q-btn>
@@ -230,7 +230,7 @@ const onSubmit = async () => {
     email: form.email,
     password: form.password,
     passwordConfirmation: form.passwordConfirmation,
-    avatar: uploadedAvatar.value, // base64 string
+    avatar: uploadedAvatar.value,
   };
 
   try {
@@ -246,7 +246,7 @@ const onSubmit = async () => {
       const errors = axiosError.response?.data?.errors;
 
       if (errors && errors.length > 0) {
-        // Show ALL errors at once
+        // show vsetky errory naraz
         errors.forEach((error) => {
           if (error.field === 'email') {
             errorMessageEmail.value = 'There is already an account with this email';
@@ -255,7 +255,7 @@ const onSubmit = async () => {
           }
         });
 
-        // If no specific field errors, show general error
+        // ak nemame specificky error, zobrazime defaultny
         if (!errorMessageEmail.value && !errorMessageNickname.value && !errorMessageOther.value) {
           errorMessageOther.value = 'Registration failed';
         }

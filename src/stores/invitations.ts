@@ -1,4 +1,3 @@
-// src/stores/invitations.ts
 import { defineStore } from 'pinia';
 import type { Invitation } from 'src/types/invitation';
 import GlobalSocketService from 'src/services/GlobalService';
@@ -29,7 +28,7 @@ export const useInvitationsStore = defineStore('invitations', {
     },
     async accept(invitation: Invitation) {
       try {
-        //TOTO ma topovat channel ale nejde to!
+        //topuj channel po akceptacii
         const socket = channelService.join(invitation.channelName);
         if (!socket.isJoined) {
           await socket.joinChannel();
@@ -42,10 +41,10 @@ export const useInvitationsStore = defineStore('invitations', {
         const channelToTop = channelsStore.channelsList.find((c) => c.id === invitation.channelId);
 
         if (channelToTop) {
-          // 2. ✅ Odstráňte ho z aktuálnej pozície
+          // odstran z aktualnej pozicie
           channelsStore.removeChannelById(channelToTop.id);
 
-          // 3. ✅ Topnite ho
+          //topni ho
           channelsStore.channelsList.unshift(channelToTop);
           channelsStore.setActive(channelToTop.name);
         }

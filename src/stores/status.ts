@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import type { UserStatusType } from 'src/types/UserStatus';
-import GlobalSocketService from 'src/services/GlobalService';
 import { useAuthStore } from './auth';
 import { statusMap } from 'src/types/UserStatus';
 import { api } from 'src/boot/axios';
@@ -17,10 +16,16 @@ export const useStatusStore = defineStore('status', {
     statusObj(state) {
       return statusMap[state.myStatus] || statusMap.offline;
     },
+    isMyDndActive: (state) => {
+      const authStore = useAuthStore();
+      const myNickname = authStore.user?.nickname;
+      if (!myNickname) return false;
+      return state.userDnds[myNickname] ?? false;
+    },
   },
 
   actions: {
-    init() {
+    async init() {
       if (this.initialized) return;
       this.initialized = true;
 
@@ -29,13 +34,14 @@ export const useStatusStore = defineStore('status', {
         this.myStatus = authStore.user.status || 'online';
       }
 
-      // Keď zmenis status ty
+      const GlobalSocketService = (await import('src/services/GlobalService')).default;
+      // Ked zmenis status ty
       GlobalSocketService.socket.on('status:updated', (newStatus: UserStatusType) => {
         console.log('STATUS EVENT RECEIVED (me):', newStatus);
         this.myStatus = newStatus;
       });
 
-      // Kes zmeni status NIEKTO INY
+      // Ked zmeni status NIEKTO INY
       GlobalSocketService.socket.on('user:statusUpdated', (payload) => {
         if (this.myStatus === 'online') {
           console.log('STATUS EVENT RECEIVED (others):', payload);
@@ -74,11 +80,10 @@ export const useStatusStore = defineStore('status', {
     },
     async fetchMyDnd() {
       try {
-        const response = await api.get<{ dnd: number }>('/api/users/dnd'); // ← number, nie boolean
+        const response = await api.get<{ dnd: number }>('/api/users/dnd');
         const authStore = useAuthStore();
         const myNickname = authStore.user?.nickname || 'me';
 
-        // Teraz je porovnanie v poriadku
         this.userDnds[myNickname] = response.data.dnd === 1;
 
         console.log('Loaded my DND from DB:', response.data.dnd);

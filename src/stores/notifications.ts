@@ -15,7 +15,7 @@ export const useNotificationStore = defineStore('notification', {
       if (this.initialized) return;
       this.initialized = true;
 
-      // Listener na nové notifikácie
+      // Listener na nove notifikacie
       GlobalSocketService.socket.on('notification:new', (notif: Notification) => {
         console.log('New notification received via WS:', notif);
         this.notifications.unshift(notif);

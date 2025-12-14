@@ -8,7 +8,6 @@ import type { SerializedMessage } from 'src/contracts';
 import type { Invitation } from 'src/types/invitation';
 import notificationService from './NotificationService';
 import { useAuthStore } from 'src/stores/auth';
-// import { useStatusStore } from 'src/stores/status';
 
 export interface BanStatus {
   status: 'ok' | 'banned' | 'not_found';
@@ -27,10 +26,10 @@ export class ChannelSocketManager extends SocketManager {
   private subscribed = false;
   public isJoined = false;
 
-  // VOLAJ TOTO PRI PRVOM JOIN!
+  //volame pri prvom join
   public join(params?: BootParams): this {
     if (params) {
-      this.subscribe(); // zavolá subscribe s Quasar boot params
+      this.subscribe(); // zavola subscribe s Quasar boot params
     } else {
       if (!this.subscribed) {
         console.warn('ChannelSocketManager join called without boot params!');
@@ -69,7 +68,7 @@ export class ChannelSocketManager extends SocketManager {
     this.socket.on('member:joined', callback);
   }
 
-  // ==================== INVITATION METHODS ====================
+  //----------------------------- INVITATION METHODS -----------------------------
 
   public async inviteUsers(nicknames: string[]): Promise<{
     success: boolean;
@@ -89,12 +88,10 @@ export class ChannelSocketManager extends SocketManager {
   public async deleteChannel(channelId: number): Promise<{
     message: string;
   }> {
-    // ✅ Odošleme ID kanála (názov sa neposiela, lebo ID je unikátny identifikátor)
     return this.emitAsync('deleteChannel', channelId);
   }
 
   public async checkBanStatus(channelName: string): Promise<BanStatus> {
-    // Používame globálne volanie (cez manažér, ku ktorému sme pripojení, napr. 'General')
     return this.emitAsync('checkBanStatus', channelName);
   }
 
@@ -110,11 +107,7 @@ export class ChannelSocketManager extends SocketManager {
     console.log('Posielam DND na update: ', dnd);
     return this.emitAsync('updateDnd', { dnd });
   }
-  //typing
-  // public sendTyping(typing: boolean): void {
-  //   console.log('Sending typing:', typing ? 'started' : 'stopped');
-  //   this.socket.emit('typing', { typing });
-  // }
+
   public sendTyping(payload: TypingPayload): void {
     console.log('Sending typing:', payload.typing ? 'started' : 'stopped', 'text:', payload.text);
     this.socket.emit('typing', payload);
@@ -129,7 +122,6 @@ export class ChannelSocketManager extends SocketManager {
           status: u.status,
         }));
 
-        // ✅ dynamický import store, aby sa predišlo cyklu
         const { useStatusStore } = await import('src/stores/status');
         const statusStore = useStatusStore();
         statusStore.updateStatuses(payload);
@@ -145,11 +137,10 @@ export class ChannelSocketManager extends SocketManager {
     try {
       const response = await this.emitAsync('getAllDnds', {});
       if (Array.isArray(response)) {
-        // Dynamický import store
         const { useStatusStore } = await import('src/stores/status');
         const statusStore = useStatusStore();
 
-        // Aktualizuj všetky DND naraz
+        // aktualizuj vsetky DND naraz
         statusStore.updateDnds(response);
 
         console.log('Fetched all user DNDs:', response);
@@ -182,12 +173,8 @@ export class ChannelSocketManager extends SocketManager {
   public destroy(): void {
     (this.constructor as SocketManagerConstructorContract).destroyInstance(this);
 
-    // 🚨 KĽÚČOVÉ RIEŠENIE: Prístup k singletonu cez dynamický import (ktorý rieši cykly)
-    // Aj keď je to v tom istom súbore, toto je najspoľahlivejší mechanizmus
-    // v modernom JS/TS pri mixovaní inštancií.
     import('./ChannelService')
       .then((module) => {
-        // module.default je vaša singleton inštancia new ChannelService()
         module.default.removeInstance(this.namespace);
       })
       .catch((err) => {
@@ -217,7 +204,7 @@ export class ChannelSocketManager extends SocketManager {
       console.log(`[SOCKET] ${this.namespace} [${event}]`, args);
     });
 
-    // ZABRAŇ DUPLIKÁCII!
+    // zabranime duplikacii
     this.socket.off('message');
     this.socket.on('message', (msg: SerializedMessage) => {
       console.log('Received message:', msg);
@@ -245,7 +232,6 @@ export class ChannelSocketManager extends SocketManager {
       }
     });
 
-    // Add BEFORE  this.subscribed = true;
     this.socket.off('members:update');
     this.socket.on('members:update', ({ channelId, members }) => {
       console.log('LIVE MEMBERS UPDATE:', channelId, members);
@@ -254,10 +240,8 @@ export class ChannelSocketManager extends SocketManager {
       const ch = store.channelsList.find((c) => c.id === channelId);
 
       if (ch) {
-        ch.members = members; // <- reactive update 🔥
+        ch.members = members;
       }
-
-      // Optional: If current /list view is visible, reactive rerender handles it automatically
     });
 
     this.socket.off('member:left');
@@ -272,7 +256,6 @@ export class ChannelSocketManager extends SocketManager {
       }
     });
 
-    // this.socket.off('channel:deleted');
     this.socket.on('channel:deleted', ({ channelId, channelName }) => {
       console.log('CHANNEL DELETED:', channelName);
 
@@ -282,7 +265,7 @@ export class ChannelSocketManager extends SocketManager {
       if (index !== -1) {
         store.channelsList.splice(index, 1);
 
-        // Ak bol aktívny tento kanál, prepni na prvý dostupný
+        // ak bol aktivny tento kanal, prepni na prvy dostupny
         if (store.activeChannel?.id === channelId) {
           store.setActive(store.channelsList[0]?.name || '');
         }
@@ -303,23 +286,21 @@ export class ChannelSocketManager extends SocketManager {
 
     await this.emitAsync('leaveChannel');
     this.isJoined = false;
-    // this.socket.disconnect(); // Voliteľné, ak chceš úplne odpojiť socket
   }
 
   public async joinChannel(): Promise<unknown> {
     if (this.isJoined) {
       console.log('Already joined channel:', this.namespace);
-      return { success: true }; // ← vráť niečo, aby sa nezaseklo
+      return { success: true };
     }
 
     console.log('Sending joinChannel to:', this.namespace);
     const result = await this.emitAsync('joinChannel');
-    this.isJoined = true; // ← označ, že si už v kanáli
+    this.isJoined = true;
     return result;
   }
 
   public async loadMessages(options?: LoadMessagesOptions): Promise<SerializedMessage[]> {
-    // ✅ Používame typ, ktorý je definovaný a importovaný
     return this.emitAsync<SerializedMessage[]>('loadMessages', options || {});
   }
 
@@ -332,7 +313,6 @@ export class ChannelSocketManager extends SocketManager {
 class ChannelService {
   private channels: Map<string, ChannelSocketManager> = new Map();
 
-  // Normalizácia len na vyhľadávanie v mape
   private normalize(name: string): string {
     return name.trim().toLowerCase();
   }
@@ -340,14 +320,13 @@ class ChannelService {
   public join(name: string): ChannelSocketManager {
     const normalized = this.normalize(name);
 
-    // Ak už existuje (napr. "general" alebo "General"), vráť ho
+    // ak uz ecistuje, vrat ho
     if (this.channels.has(normalized)) {
       const socket = this.channels.get(normalized)!;
-      socket.join(); // ← už je subscribed, nič sa nestane
+      socket.join();
       return socket;
     }
 
-    // Použi PÔVODNÝ názov do namespace (case-sensitive!)
     const socket = new ChannelSocketManager(`/channels/${name}`);
     this.channels.set(normalized, socket);
     return socket;
@@ -369,7 +348,6 @@ class ChannelService {
     const name = namespace.split('/').pop() as string;
     const normalized = this.normalize(name);
 
-    // Predpokladáme, že sa to volá po disconnect(), takže len vymažeme z mapy
     this.channels.delete(normalized);
     console.log(`[ChannelService] Removed instance for ${normalized} from map.`);
   }

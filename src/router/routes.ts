@@ -3,7 +3,6 @@ import type { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    // try redirect to home route
     redirect: () => ({ name: 'home' }),
   },
   {
@@ -26,7 +25,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/channels',
-    // channels requires auth
+    // channels musi mat auth
     meta: { requiresAuth: true },
     component: () => import('src/layouts/MainLayout.vue'),
     children: [{ path: '', name: 'home', component: () => import('src/pages/ChatPage.vue') }],

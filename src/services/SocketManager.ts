@@ -32,16 +32,16 @@ export abstract class SocketManager implements SocketManagerContract {
 
   public static getManager(): Manager {
     if (!this.manager) {
-      // <-- Ak je null (po offline režime)
+      // ak je null po offline rezime
       if (!this.managerUri) {
         throw new Error('Socket.io Manager URI not set. Call createManager(uri) first.');
       }
-      // 🚨 Automaticky znova vytvoríme Managera s uloženým URI
+      // automaticky ho znova vytvorime
       console.warn('[SocketManager] Manager bol zničený, automaticky ho znova vytvárame.');
-      // Vytvorenie nového Managera a jeho uloženie do this.manager
+      // ulozime to this.manager
       return this.createManager(this.managerUri);
     }
-    // Ak už existuje, vrátime ho
+    // ak uz existuje, vrat ho
     return this.manager;
   }
 
@@ -60,7 +60,7 @@ export abstract class SocketManager implements SocketManagerContract {
     this.namespaces.add(instance.namespace);
     this.activeInstances.push(instance);
 
-    // if SocketManager has been already booted we can boot created instance
+    // ak bol socket manager uz bootnuty, hned spustime subscribe a connect
     if (this.params !== null) {
       this.bootInstance(instance);
     }
@@ -71,7 +71,6 @@ export abstract class SocketManager implements SocketManagerContract {
   ): void {
     this.instances = this.instances.filter((socket) => socket !== instance);
     this.namespaces.delete(instance.namespace);
-    // disconnect and clean socket
     instance.socket.disconnect();
     instance.socket.removeAllListeners();
     instance.$socket = null;
@@ -79,7 +78,7 @@ export abstract class SocketManager implements SocketManagerContract {
 
   private static bootInstance(instance: SocketManagerContract): void {
     instance.subscribe(this.params!);
-    // connect socket - if it was not used in subscribe it will be created
+    // connect socket
     instance.socket.connect();
   }
 
@@ -89,13 +88,12 @@ export abstract class SocketManager implements SocketManagerContract {
     }
 
     this.params = params;
-    // call subscribe for already created instances and connect to socket
+    // zavolaj subscribe na vsetky instance a pripoj sockety
     this.instances.forEach((instance) => this.bootInstance(instance));
   }
 
   private $socket: Socket | null = null;
 
-  // lazily create socket
   public get socket(): Socket {
     if (!this.$socket) {
       this.$socket = this.socketWithAuth();
@@ -108,7 +106,6 @@ export abstract class SocketManager implements SocketManagerContract {
     (this.constructor as SocketManagerConstructorContract).addInstance(this);
   }
 
-  // this function returns socket.io socket for given namespace which handles auth token
   private socketWithAuth(): Socket {
     const io = (this.constructor as SocketManagerConstructorContract).getManager();
 
@@ -152,10 +149,7 @@ export abstract class SocketManager implements SocketManagerContract {
     return socket;
   }
 
-  /**
-   * This can be used to emit server event and return promise resolved with server response
-   * It is is intended to be used by child class methods
-   */
+  //na emit server event a vrati promise vyriesenu s odpovedou servera
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected emitAsync<T>(event: string, ...args: any[]): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -172,40 +166,19 @@ export abstract class SocketManager implements SocketManagerContract {
   public destroy(): void {
     (this.constructor as SocketManagerConstructorContract).destroyInstance(this);
   }
-  // public static destroyAllInstances(excludeNamespace: string = '/'): void {
-  //   // Skopírujeme pole, aby sa dalo iterovať, aj keď sa destroyInstance mení
-  //   const activeInstances = [...this.activeInstances];
-  //   console.log('IDEM SKUSIT zmazat active channel instancie ale mozno nie su');
-  //   // Iterujeme a ničíme inštancie, ktoré nie sú v excludeNamespace (napr. /)
-  //   for (const instance of activeInstances) {
-  //     console.log('AHOOOJ MAME INSTANCIE');
-  //     if (instance.namespace !== excludeNamespace) {
-  //       console.log(
-  //         `[SocketManager] Destroying active instance for namespace: ${instance.namespace}`,
-  //       );
-  //       // Volá metódu destroyInstance, ktorá odpojí a vyčistí socket
-  //       instance.destroy();
-  //     }
-  //   }
-  // }
+
   public static disconnectManager(): void {
     if (this.manager) {
       console.log('[SocketManager] Disconnecting main Socket.IO Manager.');
-      // 1. Odpojí VŠETKY pripojené logické sockety
+      // odpojí vsetky pripojene sockety
       this.manager._close();
-      // 2. Voliteľné: Ak chcete vynútiť úplné vyčistenie referencií v pamäti,
-      // môžete vyčistiť aj zoznam aktívnych inštancií.
+      // reset zoznam aktivnych instancii a namespacov
       this.activeInstances = [];
       this.namespaces.clear();
 
-      // Ak chcete Manager znova vytvoriť pri ďalšom pripojení (napr. pre zmenu konfigurácie),
-      // môžete tiež nastaviť this.manager = null;
       this.manager = null;
     }
   }
 
-  /*
-   * This method should be overidden in child class to subscribe to this.socket events
-   */
   public abstract subscribe(params: BootParams): void;
 }

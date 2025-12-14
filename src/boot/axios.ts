@@ -1,81 +1,71 @@
-import { boot } from 'quasar/wrappers'
-import axios from 'axios'
-import type { AxiosInstance } from 'axios'
-import { authManager } from 'src/services'
+import { boot } from 'quasar/wrappers';
+import axios from 'axios';
+import type { AxiosInstance } from 'axios';
+import { authManager } from 'src/services';
 
 declare module '@vue/runtime-core' {
   interface ComponentCustomProperties {
-    $axios: AxiosInstance
-    $api: AxiosInstance
+    $axios: AxiosInstance;
+    $api: AxiosInstance;
   }
 }
-
-// Be careful when using SSR for cross-request state pollution
-// due to creating a Singleton instance here;
-// If any client changes this (global) instance, it might be a
-// good idea to move this instance creation inside of the
-// "export default () => {}" function below (which runs individually
-// for each client)
 const api = axios.create({
   baseURL: 'http://127.0.0.1:3333',
   withCredentials: true,
-  headers: {}
-})
+  headers: {},
+});
 
-const DEBUG = process.env.NODE_ENV === 'development'
+const DEBUG = process.env.NODE_ENV === 'development';
 
-// add interceptor to add authorization header for api calls
 api.interceptors.request.use(
   (config) => {
-    const token = authManager.getToken()
+    const token = authManager.getToken();
 
-    if (token) { // token !== null 
-      config.headers.Authorization = `Bearer ${token}`
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
     if (DEBUG) {
-      console.info('-> ', config)
+      console.info('-> ', config);
     }
 
-    return config
+    return config;
   },
   (error) => {
     if (DEBUG) {
-      console.error('-> ', error)
+      console.error('-> ', error);
     }
 
-    return Promise.reject(error instanceof Error ? error : new Error(String(error)))
-  }
-)
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  },
+);
 
-// add interceptor for response to trigger logout
 api.interceptors.response.use(
   (response) => {
     if (DEBUG) {
-      console.info('<- ', response)
+      console.info('<- ', response);
     }
 
-    return response
+    return response;
   },
   (error) => {
     if (DEBUG) {
-      console.error('<- ', error.response)
+      console.error('<- ', error.response);
     }
 
-    // server api request returned unathorized response so we trrigger logout
     if (error.response.status === 401 && !error.response.config.dontTriggerLogout) {
-      authManager.logout()
+      authManager.logout();
     }
 
-    return Promise.reject(error instanceof Error ? error : new Error(String(error)))
-  }
-)
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  },
+);
 
-import type { App } from 'vue'
+import type { App } from 'vue';
 
 export default boot(({ app }: { app: App }) => {
-  app.config.globalProperties.$axios = axios
-  app.config.globalProperties.$api = api
-})
+  app.config.globalProperties.$axios = axios;
+  app.config.globalProperties.$api = api;
+});
 
-export { api }
+export { api };

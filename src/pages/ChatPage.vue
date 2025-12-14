@@ -21,21 +21,20 @@
           color="primary"
           :size="iconSize"
           title="Invitations"
+          :disable="isOffline"
           @click="openInvitations"
         />
         <q-badge v-if="invitationCount > 0" color="red" floating transparent>
           {{ invitationCount }}
         </q-badge>
-        <!-- Keď je offline – šedý badge s nápisom -->
+        <!-- ked je offline, upozorni -->
         <q-badge v-if="invitationCount > 0 && isOffline" color="grey-7" floating label="offline" />
       </div>
     </div>
 
     <!-- Hlavna cast chatu -->
     <div class="column col bg-white">
-      <!-- hlavna chatova cast -->
       <div class="row col">
-        <!-- pouzijeme nas komponenet ChannelListSide -->
         <ChannelListSide
           :show-channels="showChannels"
           :is-small-screen="isSmallScreen"
@@ -130,7 +129,7 @@
                     </div>
                   </div>
 
-                  <!-- CUDZIA SPRÁVA → NA ĽAVO -->
+                  <!-- CUDZIA SPRAVA - NA LAVO -->
                   <div v-else class="row justify-start items-end q-gutter-sm">
                     <div
                       v-if="
@@ -181,14 +180,14 @@
                 </div>
               </q-infinite-scroll>
             </q-scroll-area>
-            <!-- DYNAMICKÝ TYPING INDIKÁTOR -->
+            <!-- dynamicky typing indikator -->
             <div
               v-if="hasTypingUsers"
               class="q-pl-md q-pr-md q-mb-sm cursor-pointer"
               @click="showTypingUsersDialog = true"
             >
               <div class="row items-center no-wrap">
-                <!-- AVATARY -->
+                <!-- AVATARY max 3-->
                 <div class="typing-avatars">
                   <ProfilePicture
                     v-for="(user, index) in typingAvatars"
@@ -401,7 +400,7 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-    <!-- Dialog pre zoznam členov kanála -->
+    <!-- zoznam clenov kanala -->
     <q-dialog v-model="showMembersDialog">
       <q-card style="min-width: 300px">
         <q-card-section class="row justify-between items-center">
@@ -535,7 +534,7 @@
         <q-separator />
 
         <q-card-section style="max-height: 280px; overflow-y: auto">
-          <!-- LIST TYPING USERS -->
+          <!-- zoznam typing users -->
           <q-list v-if="!selectedTypingMember" separator>
             <q-item
               clickable
@@ -560,7 +559,7 @@
               </q-item-section>
             </q-item>
 
-            <!-- EMPTY STATE -->
+            <!-- ked nikto nepise -->
             <q-item v-if="!typingMembers.length">
               <q-item-section class="text-grey-6 text-center">
                 Nobody is typing right now
@@ -568,7 +567,7 @@
             </q-item>
           </q-list>
 
-          <!-- DETAIL SELECTED MEMBER -->
+          <!-- detail selected typing user -->
           <div v-else>
             <div class="text-body1 q-mb-sm">{{ selectedTypingMember.name }}</div>
             <div class="q-pa-sm bg-grey-2 rounded-borders" style="white-space: pre-wrap">
@@ -585,7 +584,6 @@
 import { ref, computed, nextTick, onMounted, watch, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import ProfilePicture from '../components/ProfilePicture.vue';
-// import ChatNotification from '../components/ChatNotification.vue';
 import ChannelListSide from '../components/ChannelListSide.vue';
 import type { QScrollArea } from 'quasar';
 import type { Channel } from 'src/types/channel';
@@ -594,7 +592,6 @@ import { useInvitationsStore } from 'src/stores/invitations';
 import type { Invitation } from 'src/types/invitation';
 import { statusMap } from 'src/types/UserStatus';
 
-// backend
 import { api } from 'src/boot/axios';
 import { useChannelsStore } from 'src/stores/channels';
 import { useStatusStore } from 'src/stores/status';
@@ -632,11 +629,10 @@ const channelMembers = computed(() => {
     id: m.id,
     name: m.name,
     avatar: m.avatar,
-    status: 'online' as UserStatus, // TODO: Add real status
+    status: 'online' as UserStatus,
   }));
 });
 
-// Quasar breakpoint
 const $q = useQuasar();
 const isSmallScreen = computed(() => $q.screen.width < 700);
 
@@ -686,7 +682,7 @@ const getUserByName = (name: string): User => {
     users.value.find((u) => u.name === name) || {
       id: -1,
       name,
-      avatar: 'https://cdn.quasar.dev/img/avatar.png',
+      avatar: '',
       status: 'offline' as const,
     }
   );
@@ -730,16 +726,6 @@ const visibleMessages = computed(() => {
   return msgs.slice(-loadedMessagesCount.value); //ukaze nam tych poslednych 20
 });
 
-// const loadMoreMessages = async () => {
-//   if (isLoadingMore.value) return;
-//   if (loadedMessagesCount.value >= (currentMessages.value?.length || 0)) return; //uz je nacitane vsetko
-
-//   isLoadingMore.value = true;
-//   await new Promise(resolve => setTimeout(resolve, 1000)); //simulujeme nacitavanie
-//   loadedMessagesCount.value += 10; //nacita nam dalsich 10
-//   isLoadingMore.value = false;
-// };
-
 //uz mame nacitane vsetko
 const noMoreMessages = computed(() => {
   return loadedMessagesCount.value >= (currentMessages.value?.length || 0);
@@ -752,7 +738,7 @@ const onLoadMore = async (index: number, done: (stop?: boolean) => void) => {
   }
 
   isLoadingMore.value = true;
-  await new Promise((resolve) => setTimeout(resolve, 1200)); // simulácia načítania
+  await new Promise((resolve) => setTimeout(resolve, 1200)); // simulacia nacitavania s kolieckom
   loadedMessagesCount.value += batchSize;
   isLoadingMore.value = false;
   done();
@@ -788,7 +774,7 @@ const selectChannel = async (ch: Channel) => {
 
   // inak join + load messages
   try {
-    await socket.joinChannel(); // ← tu sa pripojíš len raz!
+    await socket.joinChannel();
     const messages = await socket.loadMessages();
     messages.forEach((m) => channelsStore.newMessage(ch.name, m));
   } catch (err) {
@@ -805,10 +791,10 @@ const selectChannel = async (ch: Channel) => {
 const canInvitePeople = computed(() => {
   if (!activeChannel.value) return false;
 
-  // Public channels: anyone can invite
+  // public channels: anyone can invite
   if (activeChannel.value.type === 'public') return true;
 
-  // Private channels: only admin can invite
+  // private channels: only admin can invite
   return activeChannel.value.isAdmin;
 });
 
@@ -820,7 +806,7 @@ const canRemovePeople = computed(() => {
 const canKickPeople = computed(() => {
   if (!activeChannel.value) return false;
 
-  // Only in public channels AND you're not admin
+  // only in public channels AND you are not admin
   return activeChannel.value.type === 'public' && !activeChannel.value.isAdmin;
 });
 
@@ -838,7 +824,7 @@ const acceptInvite = async (invitation: Invitation) => {
   const channelName = invitation.channelName;
   channelsStore.setActive(channelName);
 
-  // Načítaj históriu – nový člen ju ešte nemá
+  // nacitaj historiu sprav
   const socket = channelService.join(channelName);
   if (!socket.isJoined) await socket.joinChannel();
 
@@ -866,7 +852,6 @@ const createChannel = async () => {
   const name = newChannelName.value.trim();
   if (!name) return;
 
-  // Clear previous errors
   invalidNicknamesError.value = '';
 
   const nameExists = channels.value.some((ch) => ch.name.toLowerCase() === name.toLowerCase());
@@ -891,7 +876,7 @@ const createChannel = async () => {
       const invalidNicknames = response.data.invalidNicknames;
       if (invalidNicknames && invalidNicknames.length > 0) {
         invalidNicknamesError.value = `These users don't exist: ${invalidNicknames.join(', ')}`;
-        return; // Stop here, don't create channel
+        return;
       }
     } catch (err) {
       console.error('Failed to validate nicknames:', err);
@@ -900,7 +885,7 @@ const createChannel = async () => {
     }
   }
 
-  // NOW CREATE THE CHANNEL (only if nicknames are valid)
+  // (only if nicknames are valid) vytvor channel
   try {
     const response = await api.post('/api/channels', {
       name,
@@ -911,7 +896,7 @@ const createChannel = async () => {
     channelsStore.channelsList.unshift(response.data);
     channelsStore.setActive(response.data.name);
 
-    // Join via WebSocket
+    // join cez WebSocket
     const socket = channelService.join(response.data.name);
 
     if (!socket.socket.connected) {
@@ -939,7 +924,7 @@ const createChannel = async () => {
       console.error('Failed to load messages:', err);
     }
 
-    // Reset form
+    // reset
     newChannelName.value = '';
     selectedNicknames.value = [];
     newChannelType.value = 'public';
@@ -959,7 +944,6 @@ const channelToLeave = ref<Channel | null>(null);
 const leaveChannel = () => {
   if (!activeChannel.value) return;
 
-  // Store the channel and show confirmation
   channelToLeave.value = activeChannel.value;
   showLeaveConfirm.value = true;
 };
@@ -971,11 +955,11 @@ const confirmLeaveChannel = async () => {
   const socket = channelService.in(channelName);
 
   try {
-    // VŽDY choď cez WebSocket – aj v private
+    // vzdy chod cez WebSocket – aj v private
     if (socket && socket.isJoined) {
       await socket.leaveChannel();
     } else {
-      // Ak z nejakého dôvodu nie je pripojený – pripoj sa a odíď
+      // ak z nejakeho dovodu nie je pripojeny – pripoj sa a odid
       const tempSocket = channelService.join(channelName);
       if (!tempSocket.socket.connected) {
         await new Promise<void>((resolve) => tempSocket.socket.once('connect', resolve));
@@ -1001,7 +985,6 @@ watch(
   () => channelsStore.activeChannelMembers,
   (newMembers) => {
     console.log('Active channel members updated:', newMembers.length);
-    // Dialog sa automaticky updatuje vďaka computed channelMembers
   },
   { deep: true },
 );
@@ -1029,7 +1012,7 @@ const deleteChannelViaSocket = async () => {
   try {
     await socket.deleteChannel(channel.id);
     systemMessage.value = 'Channel deleted...';
-    // Všetko ostatné urobí event channel:deleted – kanál zmizne všetkým okamžite
+    // dalej vsetko urobi event channel:deleted - dynamicky sa vsetkym kanal zmaze
   } catch (err) {
     console.error('Failed to delete channel:', err);
     systemMessage.value = 'Failed to close channel';
@@ -1060,10 +1043,8 @@ const kickPeopleFromChannel = async () => {
     try {
       const response = await api.post(`/api/channels/${activeChannel.value.id}/kick`, { nickname });
 
-      // Server normálne vráti text ako pri commande
       systemMessage.value = response.data.message;
 
-      // Ak už bol permanentne zabanovaný
       if (response.data.banned) {
         await channelsStore.fetchChannels();
       }
@@ -1097,7 +1078,7 @@ const addPeopleToChannel = async () => {
       const invalidNicknames = response.data.invalidNicknames;
       if (invalidNicknames && invalidNicknames.length > 0) {
         invalidNicknamesError.value = `These users don't exist: ${invalidNicknames.join(', ')}`;
-        return; // Stop here, don't create channel
+        return;
       }
     } catch (err) {
       console.error('Failed to validate nicknames:', err);
@@ -1152,10 +1133,9 @@ const newMessage = ref('');
 const systemMessage = ref('');
 
 onMounted(async () => {
-  // Register stores globally for socket access
   await invitationsStore.loadInitial();
 
-  // Počúvaj nové pozvánky v reálnom čase
+  // pocuvaj invites
   window.addEventListener('invitation:received', ((e: CustomEvent<Invitation>) => {
     invitationsStore.add(e.detail);
   }) as EventListener);
@@ -1164,7 +1144,7 @@ onMounted(async () => {
     const { channelName, removedBy } = e.detail;
     systemMessage.value = `You were removed from ${channelName} by ${removedBy}`;
 
-    // Refresh channels - AWAIT or use void
+    // refresh channels
     void channelsStore.fetchChannels();
   }) as EventListener);
 
@@ -1173,7 +1153,7 @@ onMounted(async () => {
     await fetchUsers();
     await channelsStore.fetchChannels();
 
-    // Ak máš uložený posledný kanál (napr. v localStorage), obnov ho
+    // obnov posledny aktivny kanal
     const lastChannelName = localStorage.getItem('lastActiveChannel');
     console.log('Last active channel from storage:', lastChannelName);
     const lastChannelExists =
@@ -1185,23 +1165,23 @@ onMounted(async () => {
       channelsStore.setActive(channelsStore.channelsList[0].name);
     }
 
-    // znova sa pripoj do kanala, toto uz nahra aj spravy:
+    // znova sa pripoj do kanala, toto uz nahra aj spravy
     await channelsStore.rejoinActiveChannel();
   } catch (err) {
     console.error('Init failed:', err);
   }
 });
 
-// Po zmene kanála
+// po zmene kanala
 watch(
   activeChannel,
   async (newChannel) => {
     if (!newChannel) return;
 
-    // Ulož posledný kanál
+    // uloz posledny aktivny kanal
     localStorage.setItem('lastActiveChannel', newChannel.name);
 
-    // Reset scroll a načítanie správ TOTO NEFUNGUJE
+    // reset scroll a batch
     isLoadingMore.value = false;
     loadedMessagesCount.value = 20;
 
@@ -1215,7 +1195,7 @@ watch(
 watch(showCreateChannelDialog, (newVal) => {
   if (!newVal) {
     newChannelName.value = '';
-    selectedNicknames.value = []; //  Reset nicknames
+    selectedNicknames.value = []; //  reset nicknames
     newChannelType.value = 'public';
     invalidNicknamesError.value = '';
   }
@@ -1246,7 +1226,7 @@ const sendMessage = async () => {
       const parts = text.slice(1).split(' ');
       const command = parts[0]?.toLowerCase() ?? '';
 
-      // 1. /join → allowed even when no channel exists
+      // join
       if (command === 'join') {
         const inputName = parts[1]?.trim();
         if (!inputName) {
@@ -1264,23 +1244,23 @@ const sendMessage = async () => {
         );
 
         if (existingChannel) {
-          // channel exists and is private
+          // channel existuje a je private
           if (existingChannel.type === 'private') {
             systemMessage.value = `"${existingChannel.name}" is a private channel. Only admins can invite you.`;
             newMessage.value = '';
             return;
           }
 
-          //check if user is banned from channel
+          //check ci ma user ban na channel
           try {
-            const manager = channelService.join('General'); // Global manažér
+            const manager = channelService.join('General');
             const banStatus = await manager.checkBanStatus(inputName);
 
             if (banStatus.status === 'banned') {
               systemMessage.value =
                 banStatus.message || `You are banned from channel "${inputName}".`;
               newMessage.value = '';
-              return; //Ban existuje, return!
+              return; //Ban existuje, nepovolime
             }
           } catch (error) {
             // Ak zlyhá Socket, nemali by sme povoliť join
@@ -1290,7 +1270,7 @@ const sendMessage = async () => {
             return;
           }
 
-          // channel exists and is public - join it
+          // channel existuje a je public - pripoj sa
           const socket = channelService.join(existingChannel.name);
           if (!socket.socket.connected) {
             await new Promise<void>((resolve) => socket.socket.once('connect', resolve));
@@ -1334,7 +1314,7 @@ const sendMessage = async () => {
           return;
         }
 
-        // channel doesn't exist - create it
+        // channel neexistuje - vytvor ho
         const type: 'public' | 'private' = parts
           .slice(2)
           .join(' ')
@@ -1455,9 +1435,7 @@ const sendMessage = async () => {
         }
 
         try {
-          // Toto vráti odpoveď z servera
           await socket.deleteChannel(currentChannel.id);
-          // Zobraz správu
           systemMessage.value = 'Channel has been closed';
         } catch (err) {
           console.error('Failed to delete channel:', err);
@@ -1493,7 +1471,6 @@ const sendMessage = async () => {
 
           systemMessage.value = response.data.message;
 
-          // If user was banned, refresh channel members
           if (response.data.banned) {
             await channelsStore.fetchChannels();
           }
@@ -1542,7 +1519,7 @@ const sendMessage = async () => {
         return;
       }
 
-      // ==================== /revoke command ====================
+      // revoke command
       if (command === 'revoke') {
         if (!activeChannel.value) {
           systemMessage.value = 'Please select a channel first';
@@ -1550,7 +1527,7 @@ const sendMessage = async () => {
           return;
         }
 
-        // Check if admin (for private channels)
+        // check ci si admin - pre private channels
         if (activeChannel.value.type === 'private' && !activeChannel.value.isAdmin) {
           systemMessage.value = 'Only admin can remove users from private channels';
           newMessage.value = '';
@@ -1589,35 +1566,31 @@ const sendMessage = async () => {
     }
 
     // ────────────────────────────── NORMAL MESSAGES ──────────────────────────────
-    // First: if user has never joined any channel at all
+    // ak user nepatri este do nijakeho kanala
     if (channelsStore.channelsList.length === 0) {
       systemMessage.value = 'You need to join or create a channel first. Try: /join General';
       newMessage.value = '';
       return;
     }
 
-    // Second: if user has channels but none selected
+    // ak ma kanaly ale nema ziadny aktivny
     if (!activeChannel.value) {
       systemMessage.value = 'Please select a channel first (or type /join <name>)';
       newMessage.value = '';
       return;
     }
 
-    // At this point we KNOW we have an active channel - safe to use
+    // mame aktivny channel
     const channelName = activeChannel.value.name;
 
     if (statusStore.myStatus === 'offline') {
       systemMessage.value = 'Cannot send message: You are currently offline.';
       newMessage.value = '';
-
-      // Môžete pridať logiku pre uloženie správy lokálne/do fronty
-
       return;
     }
 
     const socket = channelService.in(channelName);
     if (!socket) {
-      // Ak by channelService.in(channelName) vrátilo null (čo by nemalo)
       systemMessage.value = 'Channel connection not initialized. Please try reloading.';
       newMessage.value = '';
       return;
@@ -1626,7 +1599,6 @@ const sendMessage = async () => {
     const tempId = Date.now();
     const store = useChannelsStore();
 
-    // Optimistic UI
     store.newMessage(channelName, {
       id: tempId,
       createdBy: authStore.user!.id,
@@ -1643,16 +1615,15 @@ const sendMessage = async () => {
 
     await nextTick();
     await scrollToBottom();
+    systemMessage.value = '';
 
     try {
       await Promise.resolve(socket.addMessage(text));
 
-      // Remove temp message (server will push the real one)
       const idx = store.messages[channelName].findIndex((m) => m.id === tempId);
       if (idx !== -1) store.messages[channelName].splice(idx, 1);
     } catch (err) {
       console.error('Failed to send message via socket:', err);
-      // Rollback optimistic message
       const idx = store.messages[channelName].findIndex((m) => m.id === tempId);
       if (idx !== -1) store.messages[channelName].splice(idx, 1);
       throw err;
@@ -1663,18 +1634,15 @@ const sendMessage = async () => {
   } finally {
     newMessage.value = '';
 
-    // Po odoslani spravy poali, ze si prestal pisat
+    // Po odoslani spravy posli, ze si prestal pisat
     if (isCurrentlyTyping) {
       isCurrentlyTyping = false;
-      // if (typingTimer) clearTimeout(typingTimer);
       emitTyping({ typing: false });
     }
   }
 };
 
 //typing - teraz dajme bez timera, proste ked si v command line tak pises
-// let typingTimer: ReturnType<typeof setTimeout> | null = null;
-// const TYPING_DELAY = 7000; // po kolkych seconds poslat stopped typing ak nepise
 let isCurrentlyTyping = false;
 const typingUsers = ref<
   Record<
@@ -1703,6 +1671,7 @@ const typingMembers = computed(() => {
 
 const typingAvatars = computed(() => {
   return typingMembers.value.slice(0, 3).map((member) => ({
+    //maximalne 3 avatari sa ukazu
     nickname: member.name,
     avatar: member.avatar || '',
   }));
@@ -1727,7 +1696,7 @@ const handleTyping = () => {
     isCurrentlyTyping = true;
   }
 
-  // send typing with current text
+  // send typing s aktualnym textom
   if (activeChannel.value) {
     const socket = channelService.in(activeChannel.value.name);
     if (socket && socket.socket.connected) {
@@ -1741,7 +1710,7 @@ const handleTyping = () => {
 };
 
 const handleTypingStop = () => {
-  // Ak stratí focus (napr. klikne preč), okamžite pošli stop
+  // Ak strati focus napriklad klikne prec, stopujeme typing
   if (isCurrentlyTyping) {
     isCurrentlyTyping = false;
     if (activeChannel.value) {
@@ -1772,7 +1741,7 @@ const emitTyping = (payload: TypingPayload) => {
 const handleUserTyping = (payload: { nickname: string; typing: boolean; text?: string }) => {
   if (payload.typing) {
     typingUsers.value = {
-      ...typingUsers.value, // dôležité, aby Vue zaregistrovalo zmenu
+      ...typingUsers.value, // aby nam vue zareagovalo
       [payload.nickname]: {
         nickname: payload.nickname,
         text: payload.text || '',
@@ -1786,17 +1755,17 @@ const handleUserTyping = (payload: { nickname: string; typing: boolean; text?: s
 };
 
 watch(activeChannel, (newChannel, oldChannel) => {
-  // Odpoj starý listener
+  // odpoj stary listener
   if (oldChannel) {
     const oldSocket = channelService.in(oldChannel.name);
     if (oldSocket) {
       oldSocket.socket.off('user:typing', handleUserTyping);
     }
-    // Vyčisti typing pre starý kanál
+    // vycisti typing pre stary kanal
     typingUsers.value = {};
   }
 
-  // Pripoj nový
+  // pripoj novy
   if (newChannel) {
     const socket = channelService.in(newChannel.name);
     if (socket) {
@@ -1854,7 +1823,7 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 .mention-highlight {
-  background: #fff8c4 !important; /* jemne žltá */
+  background: #fff8c4 !important;
   border-left: 4px solid #f59e0b !important;
   font-weight: 600;
 }
@@ -1907,20 +1876,16 @@ onUnmounted(() => {
 .typing-avatar {
   border-radius: 50%;
   margin-left: -12px;
-
-  /* VIZUÁLNA ČITATEĽNOSŤ */
   box-shadow:
     0 0 0 2px white,
-    /* biely ring */ 0 2px 6px rgba(0, 0, 0, 0.15); /* jemný tieň */
-
-  background-color: white; /* fallback */
+    0 2px 6px rgba(0, 0, 0, 0.15);
+  background-color: white;
 }
 
 .typing-avatar:first-child {
   margin-left: 0;
 }
 
-/* tri bodky */
 .typing-dots {
   display: flex;
   align-items: center;
@@ -1959,8 +1924,8 @@ onUnmounted(() => {
 }
 .dnd-emoji {
   position: absolute;
-  top: -10px; /* adjust as needed */
-  right: -7px; /* adjust as needed */
+  top: -10px;
+  right: -7px;
   font-size: 16px;
 }
 </style>
