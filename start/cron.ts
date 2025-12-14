@@ -1,11 +1,9 @@
-// cron.ts
 import cron from 'node-cron'
 import Channel from 'App/Models/Channel'
 import Notification from 'App/Models/Notification'
 import { DateTime } from 'luxon'
 import Ws from '@ioc:Ruby184/Socket.IO/Ws'
 
-// cron.ts
 export async function processInactiveChannels() {
   console.log('[CRON] Checking inactive channels...')
   const threshold = DateTime.now().minus({ days: 30 })
@@ -40,5 +38,4 @@ export async function processInactiveChannels() {
   console.log('[CRON] Finished processing inactive channels.')
 }
 
-// pôvodný cron spustí len funkciu
 cron.schedule('0 0 * * *', processInactiveChannels)

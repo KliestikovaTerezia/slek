@@ -1,4 +1,3 @@
-// Na začiatku súboru (nad triedou alebo mimo nej)
 export type InvitationPayload = {
   id: number
   channelId: number

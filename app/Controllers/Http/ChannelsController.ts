@@ -1,4 +1,3 @@
-// app/Controllers/Http/ChannelsController.ts
 import Channel from 'App/Models/Channel'
 import type { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import Ws from '@ioc:Ruby184/Socket.IO/Ws'
@@ -27,7 +26,7 @@ export default class ChannelsController {
           avatar: m.avatarUrl,
         }))
 
-        // Check if CURRENT user is the creator (admin)
+        // check ci je aktualny user admin kanalu
         const isCurrentUserAdmin = ch.createdBy === currentUserId
 
         return {
@@ -49,22 +48,22 @@ export default class ChannelsController {
       return response.unauthorized({ error: 'Not authenticated' })
     }
 
-    // Create channel
+    // create channel
     const channel = await Channel.create({
       name,
       type: type || 'public',
       createdBy: currentUserId,
     })
 
-    // Add creator as member (no is_admin column needed)
+    // pridaj admina ako member
     await channel.related('members').attach([currentUserId])
 
-    // Add other members
+    // pridaj ostatnych memberov
     if (memberIds && memberIds.length > 0) {
       await channel.related('members').attach(memberIds)
     }
 
-    // Load members and return
+    // nahraj memberov
     await channel.load('members')
 
     const members = channel.members.map((m) => ({
@@ -79,14 +78,14 @@ export default class ChannelsController {
       type: channel.type,
       createdBy: channel.createdBy,
       members,
-      isAdmin: true, // Creator is always admin
+      isAdmin: true, // creator je admin
     })
   }
 
   //vrati vseetky channels z databazy, nie iba ktorych je clenom
   public async all({ response }: HttpContextContract) {
     const channels = await Channel.query()
-      .preload('members') // len počet členov, žiadne pivot stĺpce!
+      .preload('members') 
 
     return response.json(
       channels.map((ch) => ({
@@ -110,7 +109,7 @@ export default class ChannelsController {
       return response.notFound({ error: 'Channel not found' })
     }
 
-    // Only creator can delete
+    // iba admin moze mazat kanal
     if (channel.createdBy !== currentUserId) {
       return response.forbidden({ error: 'Only the channel creator can delete it' })
     }
@@ -132,7 +131,7 @@ export default class ChannelsController {
 
     const leavingUser = await User.find(userId)
 
-    // ✅ Emit member:left
+    // emit member:left
     Ws.io.to(channel.name).emit('member:left', {
       userId,
       nickname: leavingUser?.displayName || leavingUser?.email.split('@')[0],
@@ -140,7 +139,7 @@ export default class ChannelsController {
       channelName: channel.name,
     })
 
-    // ✅ Emit members:update
+    // emit members:update
     const updatedMembersList = channel.members.map((m) => ({
       id: m.id,
       name: m.displayName || m.nickname || m.email.split('@')[0],
@@ -152,7 +151,7 @@ export default class ChannelsController {
       members: updatedMembersList,
     })
 
-    // ✅ Ak je posledný člen, zmaž kanál
+    // ak si poslednym clenom, zmaz kanal
     if (channel.members.length === 0) {
       const channelName = channel.name
       await channel.delete()
@@ -181,41 +180,41 @@ export default class ChannelsController {
     return response.badRequest({ error: 'Nickname is required' })
   }
 
-  // Load channel
+  // nacitaj channel
   const channel = await Channel.find(channelId)
   if (!channel) {
     return response.notFound({ error: 'Channel not found' })
   }
 
-  // Check if channel is public
+  // je channel public?
   if (channel.type !== 'public') {
     return response.forbidden({ error: 'Kick voting only works in public channels' })
   }
 
-  // Find user to kick by nickname
+  // najdi usera na kick
   const userToKick = await User.query().where('nickname', nickname).first()
   if (!userToKick) {
     return response.notFound({ error: 'User not found' })
   }
 
-  // Can't kick yourself
+  // nemozes seba kicknut
   if (userToKick.id === currentUserId) {
     return response.badRequest({ error: 'You cannot kick yourself' })
   }
 
-  // Check if user is member of channel
+  // check ci je user member kanalu
   await channel.load('members')
   const isMember = channel.members.some(m => m.id === userToKick.id)
   if (!isMember) {
     return response.badRequest({ error: 'User is not a member of this channel' })
   }
 
-  // Check if current user is admin
+  // check ci som admin
   const isAdmin = channel.createdBy === currentUserId
 
   if (isAdmin) {
     // Admin kick = instant ban
-    // Check if already banned
+    // check ci je user uz banned
     const existingBan = await ChannelBan.query()
       .where('channel_id', channelId)
       .where('user_id', userToKick.id)
@@ -225,17 +224,17 @@ export default class ChannelsController {
       return response.badRequest({ error: 'User is already banned' })
     }
 
-    // Create ban
+    // create ban
     await ChannelBan.create({
       channelId,
       userId: userToKick.id,
       bannedBy: currentUserId,
     })
 
-    // Remove from channel members
+    //odstran usera z channel members
     await channel.related('members').detach([userToKick.id])
 
-    // Emit WebSocket event so its dynamic
+    // emit WebSocket event
     const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default
       Ws.io.to(`channels:${channel.name}`).emit('user:kicked', {
         userId: userToKick.id,
@@ -252,7 +251,7 @@ export default class ChannelsController {
   }
 
   // Non-admin kick = vote
-  // Check if already voted
+  // ckeck ci uz za neho user hlasoval
   const existingVote = await ChannelKick.query()
     .where('channel_id', channelId)
     .where('kicked_user_id', userToKick.id)
@@ -263,14 +262,14 @@ export default class ChannelsController {
     return response.badRequest({ error: 'You already voted to kick this user' })
   }
 
-  // Add vote
+  // pridaj hlas
   await ChannelKick.create({
     channelId,
     kickedUserId: userToKick.id,
     kickerUserId: currentUserId,
   })
 
-  // Count total votes
+  // spocitaj hlasy
   const voteCount = await ChannelKick.query()
     .where('channel_id', channelId)
     .where('kicked_user_id', userToKick.id)
@@ -286,10 +285,10 @@ export default class ChannelsController {
       bannedBy: null, // Vote-based ban
     })
 
-    // Remove from channel members
+    // odstran usera z channel members
     await channel.related('members').detach([userToKick.id])
 
-    // Emit WebSocket event so its dynamic
+    // emit WebSocket event so its dynamic
     const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default
     Ws.io.to(`channels:${channel.name}`).emit('user:kicked', {
       userId: userToKick.id,

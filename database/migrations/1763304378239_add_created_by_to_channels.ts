@@ -5,18 +5,13 @@ export default class extends BaseSchema {
 
   public async up() {
       this.schema.alterTable(this.tableName, (table) => {
-        // Pridaj stĺpec created_by
         table
           .integer('created_by')
           .unsigned()
           .references('id')
           .inTable('users')
           .onDelete('CASCADE')
-          .after('type') // voliteľné, pre poriadok
-
-        // Nastav predvolenú hodnotu pre existujúce kanály (napr. admin ID = 1)
-        // ALEBO použi nullable, ak nechceš
-        // table.integer('created_by').unsigned().references('id').inTable('users').nullable()
+          .after('type') 
       })
     }
 

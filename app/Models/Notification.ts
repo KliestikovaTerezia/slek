@@ -6,10 +6,10 @@ export default class Notification extends BaseModel {
   public id: number
 
   @column()
-  public userId: number   // <-- CHÝBA TI TOTO
+  public userId: number  
 
   @column()
-  public message: string  // <-- A TOTO
+  public message: string  
 
   @column.dateTime({ autoCreate: true })
   public createdAt: DateTime

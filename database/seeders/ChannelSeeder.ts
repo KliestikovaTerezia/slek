@@ -4,7 +4,7 @@ import User from 'App/Models/User'
 
 export default class ChannelSeeder extends BaseSeeder {
   public async run() {
-    // 1. Načítaj používateľov
+    // nacitaj uzivatelov, ktorych budeme pridavat do kanalov
     const milan = await User.query().where('email', 'milan@example.com').first()
     const katka = await User.query().where('email', 'katka@example.com').first()
     const tomas = await User.query().where('email', 'tomas@example.com').first()
@@ -14,7 +14,7 @@ export default class ChannelSeeder extends BaseSeeder {
       throw new Error('Required seed users not found: ensure milan@example.com, katka@example.com, tomas@example.com and you@example.com exist before running this seeder')
     }
 
-    // 2. Vytvor kanály
+    // vytvor kanaly
     const general = await Channel.firstOrCreate({
       name: 'General',
       type: 'public',

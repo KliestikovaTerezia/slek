@@ -11,7 +11,7 @@ export default class extends BaseSchema {
       table.integer('kicker_user_id').unsigned().references('users.id').onDelete('CASCADE')
       table.timestamp('created_at', { useTz: true })
       
-      // Prevent same user from voting multiple times
+      // mozes volit konkretneho cloveka iba raz v kanali
       table.unique(['channel_id', 'kicked_user_id', 'kicker_user_id'])
     })
   }

@@ -50,7 +50,7 @@ export default class User extends BaseModel {
     return this.nickname || `${this.firstName} ${this.lastName}`
   }
   public get avatarUrl(): string {
-    return this.avatar || 'https://cdn.quasar.dev/img/avatar.png'
+    return this.avatar || ''
   }
 
   public serialize() { //lebo mi menilo firstName na first_name a neslo zobrazit v template
