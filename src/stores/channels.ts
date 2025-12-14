@@ -28,7 +28,7 @@ export const useChannelsStore = defineStore('channels', {
     active: null as string | null,
     channelsList: [] as ChannelData[],
 
-    // Ukladanie ID poslednej správy, ktorú klient spracoval
+    // ulozime id poslednej sprsvy ktoru user spracoval
     lastProcessedMessageId: {} as Record<string, number>,
   }),
 
@@ -52,13 +52,13 @@ export const useChannelsStore = defineStore('channels', {
       return channel?.members || [];
     },
     lastProcessedIdOf: (state) => (channel: string) => {
-      // Vráti ID alebo 0, ak nebola spracovaná žiadna správa (0 je dobrý začiatok pre server)
+      // vrati ID alebo 0, ak nebola spracovana ziadna sprava
       return state.lastProcessedMessageId[channel] || 0;
     },
   },
 
   actions: {
-    // Pripojenie k channel a načítanie histórie
+    // propoj do kanala a nacitaj historiu
     async join(channel: string) {
       try {
         this.loading = true;
@@ -82,11 +82,8 @@ export const useChannelsStore = defineStore('channels', {
     },
 
     removeChannelById(channelId: number) {
-      // Použijeme filter, aby sme vytvorili nové pole bez kanála so zadaným ID.
+      // filter aby sme vytvorili nove pole bez kanala so zadanym ID
       this.channelsList = this.channelsList.filter((channel) => channel.id !== channelId);
-
-      // Voliteľné logovanie pre debugovanie (môžete odstrániť)
-      // console.log(`Kanál s ID ${channelId} bol odstránený zo zoznamu.`);
     },
 
     async fetchChannels() {
@@ -94,11 +91,6 @@ export const useChannelsStore = defineStore('channels', {
         this.loading = true;
         const response = await api.get('/api/channels');
         this.channelsList = response.data;
-
-        // Set first channel as active if none selected
-        // if (!this.active && this.channelsList.length > 0) {
-        //   this.active = this.channelsList[0].name;
-        // }
       } catch (err) {
         this.error = err as Error;
         console.error('Failed to fetch channels:', err);
@@ -110,7 +102,7 @@ export const useChannelsStore = defineStore('channels', {
     async fetchAllChannels() {
       try {
         const response = await api.get('/api/channels/all');
-        return response.data; // Return all channels, don't store them
+        return response.data;
       } catch (err) {
         console.error('Failed to fetch all channels:', err);
         return [];
@@ -124,15 +116,15 @@ export const useChannelsStore = defineStore('channels', {
           const socket = channelService.join(channelName);
           if (!socket) continue;
 
-          // Získanie posledného známeho ID (musí byť implementovaný getter/state!)
+          // ziskanie posledneho znameho ID
           const sinceId = this.lastProcessedIdOf(channelName);
 
           console.log(`[Catch-up] Načítavam správy pre ${channelName} od ID: ${sinceId}`);
 
-          // Získanie chýbajúcich správ zo servera
+          // ziskanie chybajucich sprav zo servera
           const newMessages = await socket.loadMessages({ sinceId });
 
-          // Spracovanie a uloženie nových správ
+          // spracovanie a ulozenie nových sprav
           newMessages.forEach((m) => this.newMessage(channelName, m));
         } catch (error) {
           console.error(`Chyba pri načítaní zmeškaných správ pre ${channelName}:`, error);
@@ -140,18 +132,18 @@ export const useChannelsStore = defineStore('channels', {
       }
     },
 
-    // Odpojenie z channel
+    // odpojenie z channel
     leave(channel: string | null) {
       const leaving = channel ? [channel] : this.joinedChannels;
 
       leaving.forEach((c) => {
-        channelService.leave(c); // sync, žiadne await
+        channelService.leave(c);
         delete this.messages[c];
         if (this.active === c) this.active = null;
       });
     },
 
-    // Odoslanie správy
+    // odoslanie spravy
     async addMessage(channel: string, text: string) {
       const socket = channelService.in(channel);
       if (!socket) return;
@@ -183,7 +175,7 @@ export const useChannelsStore = defineStore('channels', {
       const authStore = useAuthStore();
       const myNickname = authStore.user?.nickname || authStore.user?.email.split('@')[0];
 
-      const mentionRegex = new RegExp(`@(${myNickname})\\b`, 'i'); // case-insensitive
+      const mentionRegex = new RegExp(`@(${myNickname})\\b`, 'i');
       const isMentioned = mentionRegex.test(message.content);
 
       const user = message.author.nickname;
@@ -204,7 +196,6 @@ export const useChannelsStore = defineStore('channels', {
       this.active = channel;
     },
 
-    // stores/channels.ts
     async rejoinActiveChannel() {
       const active = this.activeChannel;
       if (!active) return;

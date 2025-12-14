@@ -9,8 +9,8 @@ export interface AuthError {
 }
 
 export interface UserSettings {
-  notifyOnlyMentions: boolean; // true = len @mentions, false = všetky správy
-  notificationSound: boolean; // true = zvuk pri notifikácii
+  notifyOnlyMentions: boolean; // true = len @mentions, false = vsetky spravy
+  notificationSound: boolean; // true = zvuk pri notifikacii
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -38,7 +38,7 @@ export const useAuthStore = defineStore('auth', {
     loading: (state) => state.status === 'pending',
 
     token(): string | null {
-      return authManager.getToken(); // this reads from localStorage
+      return authManager.getToken(); // cita z localStorage
     },
   },
 
@@ -77,9 +77,7 @@ export const useAuthStore = defineStore('auth', {
       localStorage.setItem('user-settings', JSON.stringify(this.settings));
     },
 
-    /**
-     * Check if user is logged in by fetching /auth/me
-     */
+    // check ci je user prihlaseny
     async check() {
       const token = authManager.getToken();
       if (!token) {
@@ -101,14 +99,11 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /**
-     * Register new user
-     */
+    //registruj noveho usera
     async register(data: RegisterData) {
       try {
         this.AUTH_START();
         const user = await authService.register(data);
-        // Po registrácii typicky presmeruješ na login, user ostáva null
         this.AUTH_SUCCESS(null);
         return user;
       } catch (error: unknown) {
@@ -117,9 +112,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /**
-     * Login user
-     */
+    // prihlas usera
     async login(credentials: LoginCredentials) {
       try {
         this.AUTH_START();
@@ -128,7 +121,6 @@ export const useAuthStore = defineStore('auth', {
 
         // fetch user data after login
         const user = await authService.me();
-        // this.AUTH_SUCCESS(user);
         this.AUTH_SUCCESS(user);
         this.loadSettings();
         return user;
@@ -138,9 +130,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /**
-     * Logout user
-     */
+    // odhlas usera
     async logout() {
       try {
         this.AUTH_START();

@@ -1,4 +1,5 @@
 import { AppVisibility } from 'quasar';
+import { useStatusStore } from 'src/stores/status';
 
 export interface NotificationOptions {
   title: string;
@@ -10,10 +11,9 @@ export interface NotificationOptions {
 
 class NotificationService {
   private permissionGranted = false;
+  private statusStore = useStatusStore();
 
-  /**
-   * Požiada o povolenie na zobrazovanie notifikácií
-   */
+  //poziada o povolenie na zobrazovanie notifikacii
   async requestPermission(): Promise<boolean> {
     if (!('Notification' in window)) {
       console.warn('Browser nepodporuje notifikácie');
@@ -35,30 +35,20 @@ class NotificationService {
     return this.permissionGranted;
   }
 
-  /**
-   * Zobrazí systémovú notifikáciu IBA ak je aplikácia NEVIDITEĽNÁ
-   */
+  //zobrazi systemovu notifikaciu iba ak je aplikacia skryta
   showIfHidden(options: NotificationOptions): void {
-    // Skontroluj, či je aplikácia viditeľná
-    // if (AppVisibility.appVisible) {
-    //   console.log('App is visible, skipping system notification');
-    //   return;
-    // }
-
     const isHidden =
       typeof AppVisibility.appVisible === 'boolean' ? !AppVisibility.appVisible : document.hidden;
 
-    if (!isHidden) {
-      console.log('App visible -> skip notif');
+    if (!isHidden || this.statusStore.isMyDndActive) {
+      console.log(!isHidden ? 'App visible -> skip notif' : 'Dnd is active -> skip notif');
       return;
     }
 
     this.show(options);
   }
 
-  /**
-   * Zobrazí systémovú notifikáciu (vždy)
-   */
+  //zobrazi systemovu notifikaciu vzdy
   show(options: NotificationOptions): void {
     if (!this.hasPermission) {
       console.warn('Notifications not allowed');
@@ -72,16 +62,14 @@ class NotificationService {
       data: options.data,
     });
 
-    // Kliknutie na notifikáciu = focus na appku
+    // klik na notifikaciu - focus na okno
     notification.onclick = () => {
       window.focus();
       notification.close();
     };
   }
 
-  /**
-   * Skontroluje, či má používateľ povolené notifikácie
-   */
+  //skontroluje ci ma povolenie na notifikacie
   get hasPermission(): boolean {
     return this.permissionGranted || Notification.permission === 'granted';
   }

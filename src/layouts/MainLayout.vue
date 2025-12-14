@@ -95,10 +95,6 @@
               </div>
               <div><strong>Nickname:</strong> {{ userProfile.nickname }}</div>
               <div><strong>Email:</strong> {{ userProfile.email }}</div>
-
-              <div class="row justify-end q-mt-md">
-                <q-btn flat color="primary" label="Edit Profile" @click="editProfile" />
-              </div>
             </q-card-section>
           </q-card>
         </q-expansion-item>
@@ -206,11 +202,10 @@ import { useNotificationStore } from 'src/stores/notifications';
 const doNotDisturb = computed({
   get: () => statusStore.getMyDnd(authStore.user?.nickname || ''),
   set: (value: boolean) => {
-    // okamžitá update store + socket
     statusStore.userDnds[authStore.user?.nickname || ''] = value;
 
     const general = ChannelService.in('general') || ChannelService.join('general');
-    void general.updateDnd(value); // void aby nevyhadzovalo warning
+    void general.updateDnd(value);
   },
 });
 
@@ -229,8 +224,7 @@ onMounted(async () => {
   if (!nickname) return;
 
   try {
-    // Tu zavoláš fetch z DB, alebo použiješ pinia store
-    await statusStore.fetchMyDnd(); // async funkcia, ktorá uloží do statusStore.userDnds
+    await statusStore.fetchMyDnd(); // ulozi do statusStore.userDnds
 
     let general = ChannelService.in('general');
     if (!general) {
@@ -244,11 +238,6 @@ onMounted(async () => {
   }
 });
 
-// function dismissNotification() {
-//   notifications.value.shift();
-// }
-
-// ...
 const channelsStore = useChannelsStore();
 const statusStore = useStatusStore();
 void statusStore.init();
@@ -256,7 +245,6 @@ void statusStore.init();
 const myStatus = computed({
   get: () => statusStore.myStatus,
   set: (value) => {
-    // 1. Lokálna aktualizácia (Pinia store) - TERAZ JE SPRÁVNE
     statusStore.setMyStatus(value);
   },
 });
@@ -266,17 +254,20 @@ const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
 
-// const initialStatusFromStore = authStore.user?.status;
 const myStatusObj = computed(() => {
   const statusKey = myStatus.value;
   return statusMap[statusKey] || statusMap.online;
 });
 
 const handleDoNotDisturbToggle = async (newValue: boolean) => {
+  if (newValue) {
+    //bud dnd alebo notify when tagged, nie obojo
+    notifyOnlyWhenTagged.value = false;
+  }
   doNotDisturb.value = newValue;
   console.log('Do Not Disturb toggled:', newValue);
 
-  // Broadcast via ChannelService
+  // broadcast cez ChannelService
   let general = ChannelService.in('general');
   if (!general) {
     general = ChannelService.join('general');
@@ -298,7 +289,7 @@ const updateStatus = async () => {
 
   if (myStatus.value === 'offline') {
     try {
-      // 1) Send status BEFORE disconnect
+      // posli status pred odpojenim zo socketu
       let general = ChannelService.in('general');
       if (!general) {
         general = ChannelService.join('general');
@@ -310,21 +301,21 @@ const updateStatus = async () => {
     }
 
     console.log('[Socket Control] Disconnecting all sockets...');
-    SocketManager.disconnectManager(); // totally OK
+    SocketManager.disconnectManager();
     return;
   }
   if (myStatus.value === 'online') {
-    // 1) Ensure manager is connected
+    // manazer musi byt connected
     if (!GlobalSocketService.socket.connected) {
       console.log('[Socket Control] Connecting main socket...');
       GlobalSocketService.socket.connect();
     }
 
-    // 2) Load missed messages
+    // nacitaj missed spravy
     void channelsStore.loadMissedMessagesForAll();
 
     try {
-      // 3) Ensure general exists and send status
+      // posli status
       let general = ChannelService.in('general');
       if (!general) {
         general = ChannelService.join('general');
@@ -341,8 +332,6 @@ const updateStatus = async () => {
     }
   }
 };
-
-// RESPONSIVE DRAWER
 const drawerWidth = computed(() => ($q.screen.xs ? $q.screen.width : 350));
 
 const uploadedAvatar = computed(() => {
@@ -366,7 +355,7 @@ const userProfile = computed(() => {
     nickname: authStore.user.nickname,
     email: authStore.user.email,
     avatar: authStore.user.avatar,
-    status: myStatus.value, // <-- tu len berieme môj lokálny status
+    status: myStatus.value,
   };
 });
 
@@ -389,12 +378,16 @@ const notifyOnlyWhenTagged = computed({
 });
 
 function handleNotifyToggle(value: boolean) {
+  if (value) {
+    //moze byt bud dnd alebo notify when tagged, nie obojo
+    doNotDisturb.value = false;
+    // update server
+    void handleDoNotDisturbToggle(false);
+  }
+
   console.log('Notify only when tagged:', value);
 }
 
-//DO NOT DISTURB
-
-// SHOW ELEMENTS ONLY ON CHAT PAGE
 const isChatPage = computed(() => route.path === '/channels');
 
 // MENU STATES
@@ -417,8 +410,6 @@ function toggleProfile(v: boolean) {
 function openSettingsMenu() {
   settingsMenuVisible.value = !settingsMenuVisible.value;
 }
-
-function editProfile() {}
 
 async function confirmLogout() {
   showLogoutMenu.value = false;
@@ -453,9 +444,9 @@ async function confirmLogout() {
   z-index: 1;
 }
 .dnd-emoji {
-  font-size: 26px; /* väčšie emoji */
-  line-height: 1; /* nech nie je zbytočne vysoké */
-  margin-right: -12px; /* posunie emoji bližšie ku menu */
+  font-size: 26px;
+  line-height: 1;
+  margin-right: -12px;
   display: flex;
   align-items: center;
 }
