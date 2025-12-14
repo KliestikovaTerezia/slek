@@ -1,4 +1,3 @@
-// app/Controllers/Http/UsersController.ts
 import User from 'App/Models/User'
 import type { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 
@@ -18,13 +17,13 @@ export default class UsersController {
         nickname: u.nickname,
         avatar: u.avatarUrl,
         email: u.email,
-        status: 'online', // TODO: Add real status tracking
+        status: 'online',
       }))
     )
   }
 
   public async getDnd({ auth }: HttpContextContract) {
     const user = auth.user!
-    return { dnd: user.dnd || false } // predpokladám, že máš stĺpec dnd v DB
+    return { dnd: user.dnd || false } 
   }
 }

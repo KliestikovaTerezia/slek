@@ -15,7 +15,3 @@ export default class extends BaseSchema {
     })
   }
 }
-
-
-//musis si Ivka dat node ace migration:run
-//potom aj seed samozrejme

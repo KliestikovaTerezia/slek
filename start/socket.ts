@@ -1,17 +1,7 @@
-/*
-|--------------------------------------------------------------------------
-| Websocket events
-|--------------------------------------------------------------------------
-|
-| This file is dedicated for defining websocket namespaces and event handlers.
-|
-*/
 
 import Ws from '@ioc:Ruby184/Socket.IO/Ws'
-// this is dynamic namespace, in controller methods we can use params.name
-// start/wsKernel.ts
+
 Ws.namespace('channels/:name')
-  // .middleware('auth')
   .on('joinChannel', 'MessageController.joinChannel')
   .on('loadMessages', 'MessageController.loadMessages')
   .on('addMessage', 'MessageController.addMessage')
@@ -27,7 +17,4 @@ Ws.namespace('channels/:name')
   .on('getAllStatuses', 'MessageController.getAllStatuses')
   .on('updateDnd', 'MessageController.updateDnd')
   .on('getAllDnds', 'MessageController.getAllDnds')
-
-//NEJDE MI TO GLOBALNE POSLAT NA BACKEND
-// Ws.namespace('/')
-//   .on('updateStatus', 'UserController.updateStatus')
+  .on('typing', 'MessageController.userTyping')

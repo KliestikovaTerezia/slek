@@ -17,10 +17,8 @@ export default class MessageController {
     const channelName = params.name;
     const user = auth.user!;
     const userId = user.id;
-    // const userNickname = user.displayName || user.email.split("@")[0];
-    // const userAvatar = user.avatarUrl || "";
 
-    // 1. Nájdi alebo vytvor kanál
+    // najdi alebo vytvor kanal
     let channel = await Channel.firstOrCreate(
       { name: channelName },
       {
@@ -30,41 +28,36 @@ export default class MessageController {
       }
     );
 
-    // 2. Načítaj členov
+    // nacitaj clenov
     await channel.load("members");
 
-    // 3. Skontroluj, či už bol členom
+    // zisti ci uz bol clenom
     const wasAlreadyMember = channel.members.some((m) => m.id === userId);
 
-    // 4. Ak nie je člen → pridaj ho
+    // ak nie je clenom - pridaj ho
     if (!wasAlreadyMember) {
       await channel.related("members").attach([userId]);
       await channel.load("members"); // znova načítaj po attach
     }
 
-    // 5. Pripoj socket do roomu
+    // pripoj socket do roomu
     socket.join(channelName);
 
-    // 6. ✅ EMIT members:update pre VŠETKÝCH (aj nového člena)
+    // emit members:update pre vsetkych (aj noveho clena)
     const updatedMembersList = channel.members.map((m) => ({
       id: m.id,
       name: m.displayName || m.nickname || m.email.split("@")[0],
       avatar: m.avatarUrl || "",
     }));
 
-    // ✅ Pošli VŠETKÝM v kanáli (vrátane toho, kto sa práve pridal)
+    // posli vsetkym v kanali (vratane toho, kto sa prave pridal)
     socket.nsp.to(channelName).emit("members:update", {
       channelId: channel.id,
       members: updatedMembersList,
     });
 
-    // ✅ ODSTRÁŇ member:joined event - nie je potrebný!
-    // members:update už obsahuje všetkých členov
-    // if (!wasAlreadyMember) { ... } // <-- VYMAŽ CELÝ TENTO BLOK
-
     console.log(`USER JOINED: ${user.email} → #${channelName} (admin: ${channel.createdBy === userId})`);
 
-    // 7. Vráť info pre frontend
     return {
       success: true,
       channel: channelName,
@@ -72,83 +65,6 @@ export default class MessageController {
       isAdmin: channel.createdBy === userId,
     };
   }
-  // public async joinChannel({ params, auth, socket }: WsContextContract) {
-  //   const channelName = params.name;
-  //   const user = auth.user!;
-  //   const userId = user.id;
-  //   const userNickname = user.displayName || user.email.split("@")[0];
-  //   const userAvatar = user.avatarUrl || "";
-
-  //   // 1. Nájdi alebo vytvor kanál
-  //   let channel = await Channel.firstOrCreate(
-  //     { name: channelName },
-  //     {
-  //       name: channelName,
-  //       type: "public",
-  //       createdBy: userId,
-  //     }
-  //   );
-
-  //   // 2. Načítaj členov
-  //   await channel.load("members");
-
-  //   // 3. Skontroluj, či už bol členom
-  //   const wasAlreadyMember = channel.members.some((m) => m.id === userId);
-
-  //   // 4. Ak nie je člen → pridaj ho
-  //   if (!wasAlreadyMember) {
-  //     await channel.related("members").attach([userId]);
-  //     // Emit fresh members list to everyone in the channel
-  //     await channel.load("members"); // znova načítaj po attach
-  //     const updatedMembersList = channel.members.map((m) => ({
-  //       id: m.id,
-  //       name: m.displayName || m.nickname || m.email.split("@")[0],
-  //       avatar: m.avatarUrl || "",
-  //     }));
-
-  //     socket.nsp.to(channelName).emit("members:update", {
-  //       channelId: channel.id,
-  //       members: updatedMembersList,
-  //     });
-  //   }
-
-  //   // 5. Pripoj socket do roomu (používame len channelName ako room)
-  //   socket.join(channelName);
-
-  //   // 6. Pošli aktuálny zoznam členov iba novopripojenému
-  //   const membersList = channel.members.map((m) => ({
-  //     id: m.id,
-  //     name: m.displayName || m.nickname || m.email.split("@")[0],
-  //     avatar: m.avatarUrl || "",
-  //   }));
-
-  //   socket.emit("members:list", membersList);
-
-  //   // 7. Ak je to NOVÝ člen → oznám všetkým (vrátane seba)
-  //   if (!wasAlreadyMember) {
-  //     const joinPayload = {
-  //       userId,
-  //       nickname: userNickname,
-  //       avatar: userAvatar,
-  //       channelName,
-  //       channelId: channel.id,
-  //       isAdmin: channel.createdBy === userId,
-  //     };
-
-  //     // Broadcast všetkým v kanáli (vrátane odosielateľa)
-  //     socket.to(channelName).emit("member:joined", joinPayload);
-  //   }
-
-  //   console.log(`USER JOINED: ${user.email} → #${channelName} (admin: ${channel.createdBy === userId})`);
-
-  //   // 8. Vráť info pre frontend (napr. isAdmin)
-  //   return {
-  //     success: true,
-  //     channel: channelName,
-  //     channelId: channel.id,
-  //     isAdmin: channel.createdBy === userId,
-  //   };
-  // }
 
   public async loadMessages({ params, auth }: WsContextContract) {
     const channelName = params.name;
@@ -173,61 +89,23 @@ export default class MessageController {
     const channelName = params.name;
     const userId = auth.user!.id;
 
-    // Over, či je členom
+    // over ci je clenom
     const channel = await Channel.query()
       .where("name", channelName)
       .whereHas("members", (q) => q.where("users.id", userId))
       .firstOrFail();
 
-    // Zabezpeč, že je v roome
     socket.join(channelName);
 
-    // Vytvor správu
+    // vytvor spravu
     const message = await this.messageRepository.create(channelName, userId, content);
 
-    // Pošli všetkým v kanáli
+    // posli vsetkym v roomke
     socket.nsp.to(channelName).emit("message", message);
 
     return message;
   }
 
-  // NOVÁ METÓDA: leaveChannel
-  // public async leaveChannel({ socket, params, auth }: WsContextContract) {
-  //   const channelName = params.name;
-  //   const user = auth.user!;
-
-  //   const channel = await Channel.findByOrFail("name", channelName);
-    
-  //   await channel.related("members").detach([user.id]);
-  //   await channel.load("members");
-
-  //   const updatedMembersList = channel.members.map((m) => ({
-  //     id: m.id,
-  //     name: m.displayName || m.nickname || m.email.split("@")[0],
-  //     avatar: m.avatarUrl || "",
-  //   }));
-
-  //   socket.nsp.to(channelName).emit("members:update", {
-  //     channelId: channel.id,
-  //     members: updatedMembersList,
-  //   });
-
-  //   // ✅ POTOM emit member:left
-  //   socket.nsp.to(channelName).emit("member:left", {
-  //     userId: user.id,
-  //     nickname: user.displayName || user.email.split("@")[0],
-  //     avatar: user.avatarUrl || "",
-  //     channelName,
-  //   });
-
-  //   // disconnect socket
-  //   // socket.leave(channelName);
-    
-  //   console.log(`USER LEFT via socket: ${user.email} → #${channelName}`);
-    
-  //   return { success: true };   
-
-  // }
   public async deleteChannel({ auth, socket }: WsContextContract, channelId: number) {
     const user = auth.user!
     const channel = await Channel.findOrFail(channelId)
@@ -240,7 +118,7 @@ export default class MessageController {
 
     await channel.delete()
 
-    // Pošli VŠETKÝM v roomke (vrátane admina!)
+    // Posli vsetkym v roomke (aj adminovi)
     socket.nsp.emit('channel:deleted', {
       channelId: channel.id,
       channelName,
@@ -248,7 +126,6 @@ export default class MessageController {
     })
     console.log('Ano delete prebehol.')
     const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default
-    // Globálny refresh pre tých, čo nie sú v roomke
     Ws.io.emit('allChannels:updated')
 
     return { message: `Channel "${channelName}" deleted` }
@@ -263,13 +140,12 @@ public async updateDnd(
   user.dnd = payload.dnd;
   await user.save();
   
-  // Save DND status separately
   userDndStatuses[user.id] = payload.dnd;
   console.log('[Server] updateDnd called for user:', user.email, 'payload:', payload);
 
   const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
 
-  // Broadcast DND update to everyone
+  // Broadcast DND pre vsetkych
   Ws.io.emit('user:dndUpdated', {
     userId: user.id,
     dnd: payload.dnd,
@@ -293,7 +169,7 @@ public async getAllDnds({}: WsContextContract) {
   
 public async updateStatus(
   { auth, socket }: WsContextContract,
-  payload: { status: "online" | "offline"; userId?: number } // type môže byť objekt
+  payload: { status: "online" | "offline"; userId?: number }
 ) {
   const user = auth.user!;
   userStatuses[user.id] = payload.status;
@@ -316,12 +192,12 @@ public async updateStatus(
 public async getAllStatuses({ auth }: WsContextContract) {
   const userIds = Object.keys(userStatuses).map(Number);
 
-  // načítaj všetkých používateľov z DB podľa ID
+  // nacitaj vsetkych userov s tymi ID z db
   const users = await User.query().whereIn('id', userIds);
 
   const statuses = users.map(u => ({
     userId: u.id,
-    status: userStatuses[u.id], // tu je len status
+    status: userStatuses[u.id],
     nickname: u.displayName || u.nickname || u.email.split('@')[0],
     avatar: u.avatarUrl,
   }));
@@ -329,18 +205,37 @@ public async getAllStatuses({ auth }: WsContextContract) {
   return statuses;
 }
 
+//typing
+public async userTyping(
+  { auth, socket }: WsContextContract,
+  payload: { typing: boolean; text?: string }  
+) {
+  const user = auth.user!;
+  const channelName = socket.nsp.name.split('/').pop();
 
-/**
- * Kontrola banu pre používateľa v danom kanáli.
- */
+  console.log(
+    `[Server] User ${user.email} is ${payload.typing ? 'typing' : 'stopped typing'} in #${channelName}`,
+    ',text:', payload.text
+  );
+
+  // Broadcast vsetkym v channeli okrem seba
+  socket.broadcast.to(channelName!).emit('user:typing', {
+    userId: user.id,
+    nickname: user.displayName || user.nickname || user.email.split('@')[0],
+    avatar: user.avatarUrl || "",
+    typing: payload.typing,
+    text: payload.text, 
+  });
+  //nepotrebujeme return
+}
+
+//ma user ban?
 public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     const userId = auth.user!.id;
 
     const channel = await Channel.query().where('name', channelName).first();
 
     if (!channel) {
-        // Kanál neexistuje, čo by sa nemalo stať, ak sa frontend pýta správne,
-        // ale pre istotu vrátime 'not_found'.
         return { status: 'not_found' }; 
     }
 
@@ -356,7 +251,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
         };
     }
 
-    // Všetko v poriadku, môže sa pripojiť
+    // vsetko ok, mozes sa pridat
     return { status: 'ok' };
 }
 
@@ -383,7 +278,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
       avatar: m.avatarUrl || "",
     }));
 
-    // Všetci v roome (vrátane admina) dostanú update
+    // vsetci v roomke dostanu update
     socket.nsp.in(channelName).emit("members:update", {
       channelId: channel.id,
       members: updatedMembersList,
@@ -398,12 +293,12 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
 
     console.log(`USER LEFT via socket: ${user.email} → #${channelName}`);
 
-    // Ak je posledný člen, zmaž kanál a emitni channel:deleted
+    // ak je posledny clem, zmaz kanal a emitni channel:deleted
     if (channel.members.length === 0) {
       const channelId = channel.id;
       await channel.delete();
 
-      // Emitni všetkým (aj tým, čo už odišli)
+      // emitnu vsetkym
       socket.nsp.in(channelName).emit('channel:deleted', {
         channelId,
         channelName,
@@ -412,11 +307,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
       return { success: true };
     }}
 
-   /**
-   * Invite users to a channel
-   * - Private: only admin can invite
-   * - Public: any member can invite
-   */
+
   public async inviteUsers(
     { params, auth, socket }: WsContextContract,
     nicknames: string[]
@@ -427,21 +318,21 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     const channel = await Channel.findByOrFail("name", channelName);
     await channel.load("members");
 
-    // Check if user is a member
+    // check ci uz je clenom
     const isMember = channel.members.some((m) => m.id === currentUser.id);
     if (!isMember) {
       throw new Error("You must be a member to invite users");
     }
 
-    // Check permissions
+    // check pravidla pozvani
     if (channel.type === "private") {
       // Private: only admin can invite
       if (channel.createdBy !== currentUser.id) {
         throw new Error("Only admin can invite users to private channels");
       }
     }
-    // Public: any member can invite (no additional check needed)
 
+    // Public: hocikto moze
     const invitedUsers = await User.query().whereIn("nickname", nicknames);
 
     if (invitedUsers.length === 0) {
@@ -452,12 +343,12 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
 
     for (const user of invitedUsers) {
-      // Check if already a member
+      // check ci uz je clenom
       await channel.load("members");
       const isMember = channel.members.some((m) => m.id === user.id);
       if (isMember) continue;
 
-      //check if its pending
+      //check ci ma uz pozvanku pending
       const existing = await ChannelInvitation.query()
         .where("channel_id", channel.id)
         .where("invited_user_id", user.id)
@@ -466,7 +357,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
 
       if (existing) continue;
 
-      // Create invitation
+      // create invitation
       const invitation = await ChannelInvitation.create({
         channelId: channel.id,
         invitedUserId: user.id,
@@ -487,9 +378,9 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
         createdAt: invitation.createdAt,
       });
 
-      // Emit globally to reach user on any socket
+      // emit globalne
       Ws.io.emit("invitation:received", {
-        userId: user.id, // Target user
+        userId: user.id, //komu posielame, target
         id: invitation.id,
         channelId: channel.id,
         channelName: channel.name,
@@ -507,9 +398,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     };
   }
 
-  /**
-   * Revoke/Remove user from channel (admin only for private channels)
-   */
+//revoke user - iba admin pre private channels
   public async revokeUser(
     { params, auth, socket }: WsContextContract,
     nickname: string
@@ -520,38 +409,38 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     const channel = await Channel.findByOrFail("name", channelName);
     await channel.load("members");
 
-    // Only admin can revoke in private channels
+    // iba admin moze odoberat userov v private channels
     if (channel.type === "private" && channel.createdBy !== currentUser.id) {
       throw new Error("Only admin can remove users from private channels");
     }
 
-    // Find user to remove
+    // najdi usera na odstranenie
     const userToRemove = await User.query().where("nickname", nickname).first();
     if (!userToRemove) {
       throw new Error("User not found");
     }
 
-    // Check if user is member
+    //ckeck ci je clenom kanala
     const isMember = channel.members.some((m) => m.id === userToRemove.id);
     if (!isMember) {
       throw new Error("User is not a member of this channel");
     }
 
-    // Cannot remove yourself
+    // nemozes odstranit sam seba
     if (userToRemove.id === currentUser.id) {
       throw new Error("Use /cancel to leave the channel");
     }
 
-    // Cannot remove admin
+    // nemozes odstranit admina kanala
     if (userToRemove.id === channel.createdBy) {
       throw new Error("Cannot remove channel admin");
     }
 
-    // Remove user
+    // odstran usera
     await channel.related("members").detach([userToRemove.id]);
     await channel.load("members");
 
-    // Update members list
+    // update list
     const updatedMembersList = channel.members.map((m) => ({
       id: m.id,
       name: m.displayName || m.nickname || m.email.split("@")[0],
@@ -563,7 +452,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
       members: updatedMembersList,
     });
 
-    // Notify removed user
+    // notifikuj vsetkych globalne
     const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
     channel.members.forEach((member) => {
       Ws.io.emit("members:update:global", {
@@ -574,7 +463,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
       });
     });
 
-    // Notify removed user
+    // notifikuj odstraneneho usera
     Ws.io.emit("user:removed", {
       userId: userToRemove.id,
       channelId: channel.id,
@@ -589,10 +478,7 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     };
   }
 
-  /**
-   * User accepts invitation
-   */
-
+  
   public async acceptInvitation(
     {params, auth, socket }: WsContextContract,
     invitationId: number
@@ -618,43 +504,41 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     const inviterIsAdmin = (channel.type === "private" && channel.createdBy === invitation.invitedBy) 
                            || channel.createdBy === invitation.invitedBy; 
     
-    // Skontrolujeme, či má pozvaný ban
+    // Skontrolujeme, ci ma pozvany ban
     const banRecord = await ChannelBan.query()
         .where('channel_id', channel.id)
         .where('user_id', user.id)
         .first();
 
     if (inviterIsAdmin && banRecord) {
-        // Ak je pozývateľ admin a používateľ má ban:
-        await banRecord.delete(); // 💥 VYMAZANIE BANU!
+        // ak je user admin a pozvany ma ban
+        await banRecord.delete(); // UZ NEMA BAN
         console.log(`UNBAN: User ${user.nickname} unbanned from #${channel.name} via admin invitation.`);
     }
 
-    // Pridaj do členov
+    // pridaj usera do clenov
     const wasAlreadyMember = channel.members.some(m => m.id === user.id);
     if (!wasAlreadyMember) {
       await channel.related("members").attach([user.id]);
       await channel.load("members");
     }
 
-    // KĽÚČOVÉ: Pripoj socket do roomu (ako keby volal joinChannel)
     socket.join(channelName);
     console.log(`SOCKET JOINED ROOM via acceptInvitation: ${user.email} → #${channel.name}`);
 
-    // Emitni update všetkým v kanáli (vrátane nového člena a admina)
+    // emit updtae vsetkym v kanali
     const updatedMembersList = channel.members.map((m) => ({
       id: m.id,
       name: m.displayName || m.nickname || m.email.split("@")[0],
       avatar: m.avatarUrl || "",
     }));
 
-    // Použi .in() aby to dostal aj nový člen
     socket.nsp.in(channel.name).emit("members:update", {
       channelId: channel.id,
       members: updatedMembersList,
     });
 
-    // Voliteľné: emitni member:joined
+    // emitni member:joined
     socket.nsp.in(channel.name).emit("member:joined", {
       userId: user.id,
       nickname: user.displayName || user.nickname || user.email.split("@")[0],
@@ -675,79 +559,6 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     };
   }
   
-  
-  //   public async acceptInvitation(
-  //   { auth, socket }: WsContextContract,
-  //   invitationId: number
-  // ) {
-  //   const user = auth.user!;
-
-  //   const invitation = await ChannelInvitation.query()
-  //     .where("id", invitationId)
-  //     .where("invited_user_id", user.id)
-  //     .where("status", "pending")
-  //     .preload("channel")
-  //     .firstOrFail();
-
-  //   // Update invitation status
-  //   invitation.status = "accepted";
-  //   await invitation.save();
-
-  //   const channel = invitation.channel;
-
-  //   // Add user to channel
-  //   await channel.related("members").attach([user.id]);
-  //   await channel.load("members");
-
-  //   // Join socket room
-  //   socket.join(channel.name);
-
-  //   // Emit updated members list to everyone in channel
-  //   const updatedMembersList = channel.members.map((m) => ({
-  //     id: m.id,
-  //     name: m.displayName || m.nickname || m.email.split("@")[0],
-  //     avatar: m.avatarUrl || "",
-  //   }));
-
-  //   // ✅ EMIT do room (pre pripojených cez WS)
-  //   socket.nsp.to(channel.name).emit("members:update", {
-  //     channelId: channel.id,
-  //     members: updatedMembersList,
-  //   });
-
-  //   // ✅ EMIT GLOBÁLNE pre všetkých členov kanála
-  //   const Ws = (await import('@ioc:Ruby184/Socket.IO/Ws')).default;
-  //   channel.members.forEach((member) => {
-  //     Ws.io.emit("members:update:global", {
-  //       userId: member.id,
-  //       channelId: channel.id,
-  //       channelName: channel.name,
-  //       members: updatedMembersList,
-  //     });
-  //   });
-
-  //   // Notify everyone that user joined
-  //   socket.nsp.to(channel.name).emit("member:joined", {
-  //     userId: user.id,
-  //     nickname: user.displayName || user.nickname,
-  //     avatar: user.avatarUrl,
-  //     channelName: channel.name,
-  //   });
-
-  //   return {
-  //     success: true,
-  //     channel: {
-  //       id: channel.id,
-  //       name: channel.name,
-  //       type: channel.type,
-  //       isAdmin: channel.createdBy === user.id,
-  //     },
-  //   };
-  // }
-
-  /**
-   * User declines invitation
-   */
   public async declineInvitation(
     { auth }: WsContextContract,
     invitationId: number
@@ -766,9 +577,6 @@ public async checkBanStatus({ auth }: WsContextContract, channelName: string) {
     return { success: true };
   }
 
-  /**
-   * Get pending invitations for current user
-   */
   public async getInvitations({ auth }: WsContextContract) {
     const user = auth.user!;
 

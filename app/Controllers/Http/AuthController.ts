@@ -17,14 +17,14 @@ export default class AuthController {
       },
     })
   } catch (error) {
-    // Ak je to validácia → 400 s chybami
+    // validacne errory
     if (error.messages) {
       return response.badRequest({
-        errors: Object.values(error.messages).flat(), // ← plochý zoznam chýb
+        errors: Object.values(error.messages).flat(), 
       })
     }
 
-    // Iné chyby
+    // ine chyby
     console.error('Register error:', error)
     return response.internalServerError({
       errors: [{ message: 'Server error' }],
@@ -40,7 +40,7 @@ async login({ auth, request, response }: HttpContextContract) {
     const token = await auth.use('api').attempt(email, password)
     return token
   } catch (err) {
-    // Tu vieme rozlíšiť neexistujúceho usera vs zlé heslo
+    // neexistujuci user vs zly password sa tazko rozlisuje
     return response.status(400).send({
       errors: [
         {

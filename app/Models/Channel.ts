@@ -16,7 +16,6 @@ export default class Channel extends BaseModel {
   @column.dateTime({ autoCreate: true })
   public createdAt: DateTime;
 
-  // id usera, ktory vytvoril channel pomocou /join ak channel este neexistoval
   @column()
   public createdBy: number;
 
