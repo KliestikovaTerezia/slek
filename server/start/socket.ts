@@ -1,0 +1,20 @@
+
+import Ws from '@ioc:Ruby184/Socket.IO/Ws'
+
+Ws.namespace('channels/:name')
+  .on('joinChannel', 'MessageController.joinChannel')
+  .on('loadMessages', 'MessageController.loadMessages')
+  .on('addMessage', 'MessageController.addMessage')
+  .on('leaveChannel', 'MessageController.leaveChannel')
+  .on('inviteUsers', 'MessageController.inviteUsers')          
+  .on('revokeUser', 'MessageController.revokeUser')             
+  .on('acceptInvitation', 'MessageController.acceptInvitation')
+  .on('declineInvitation', 'MessageController.declineInvitation')
+  .on('getInvitations', 'MessageController.getInvitations')
+  .on("deleteChannel", "MessageController.deleteChannel")
+  .on('checkBanStatus', 'MessageController.checkBanStatus')
+  .on('updateStatus', 'MessageController.updateStatus')
+  .on('getAllStatuses', 'MessageController.getAllStatuses')
+  .on('updateDnd', 'MessageController.updateDnd')
+  .on('getAllDnds', 'MessageController.getAllDnds')
+  .on('typing', 'MessageController.userTyping')

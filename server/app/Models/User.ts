@@ -1,0 +1,90 @@
+import { DateTime } from 'luxon'
+import Hash from '@ioc:Adonis/Core/Hash'
+import {
+  column,
+  beforeSave,
+  BaseModel,
+  hasMany,
+  HasMany,
+  manyToMany,
+  ManyToMany,
+} from "@ioc:Adonis/Lucid/Orm";
+import Channel from "App/Models/Channel";
+import Message from "App/Models/Message";
+
+export default class User extends BaseModel {
+  @column({ isPrimary: true })
+  public id: number
+
+  @column()
+  public firstName: string
+
+  @column()
+  public lastName: string
+
+  @column()
+  public nickname: string 
+
+  @column()
+  public avatar: string | null
+
+  @column()
+  public email: string
+
+  @column({ serializeAs: null })
+  public password: string
+
+  @column()
+  public rememberMeToken: string | null
+
+  @column()
+  public dnd: boolean
+
+  @column.dateTime({ autoCreate: true })
+  public createdAt: DateTime
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  public updatedAt: DateTime
+
+  public get displayName(): string {
+    return this.nickname || `${this.firstName} ${this.lastName}`
+  }
+  public get avatarUrl(): string {
+    return this.avatar || ''
+  }
+
+  public serialize() { //lebo mi menilo firstName na first_name a neslo zobrazit v template
+    return {
+      id: this.id,
+      email: this.email,
+      firstName: this.firstName,
+      lastName: this.lastName,
+      nickname: this.nickname,
+      avatar: this.avatar,
+      displayName: this.displayName,
+      avatarUrl: this.avatarUrl,
+      dnd: this.dnd,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+    }
+  }
+
+  @beforeSave()
+  public static async hashPassword (user: User) {
+    if (user.$dirty.password) {
+      user.password = await Hash.make(user.password)
+    }
+  }
+  @hasMany(() => Message, {
+    foreignKey: 'createdBy',
+  })
+  public sentMessages: HasMany<typeof Message>
+
+  @manyToMany(() => Channel, {
+    pivotTable: 'channel_users',
+    pivotForeignKey: 'user_id',
+    pivotRelatedForeignKey: 'channel_id',
+    pivotTimestamps: true,
+  })
+  public channels: ManyToMany<typeof Channel>
+}
