@@ -6,7 +6,11 @@
 import type { WsConfig } from '@ioc:Ruby184/Socket.IO/Ws'
 
 const wsConfig: WsConfig = {
-  //
+  // client is served from a different origin in production
+  cors: {
+    origin: true,
+    credentials: true,
+  },
 }
 
 export default wsConfig

@@ -60,6 +60,25 @@ const databaseConfig: DatabaseConfig = {
       debug: false,
     },
 
+    /*
+    |--------------------------------------------------------------------------
+    | PostgreSQL
+    |--------------------------------------------------------------------------
+    |
+    | Used in production (e.g. Neon). Set DB_CONNECTION=pg and DATABASE_URL.
+    |
+    */
+    pg: {
+      client: 'pg',
+      // SSL is controlled by the URL (Neon URLs include ?sslmode=require)
+      connection: Env.get('DATABASE_URL'),
+      migrations: {
+        naturalSort: true,
+      },
+      healthCheck: false,
+      debug: false,
+    },
+
   }
 }
 
