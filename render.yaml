@@ -6,7 +6,7 @@ services:
     runtime: node
     plan: free
     rootDir: server
-    buildCommand: npm ci && npm run build && cd build && npm ci --omit=dev
+    buildCommand: npm ci --include=dev && npm run build && cd build && npm ci --omit=dev
     startCommand: cd build && node ace migration:run --force && node server.js
     envVars:
       - key: NODE_VERSION
