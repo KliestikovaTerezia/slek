@@ -1,14 +1,14 @@
-import { boot } from "quasar/wrappers";
-import type { Manager } from "socket.io-client";
-import { SocketManager, type BootParams } from "src/services/SocketManager";
+import { boot } from 'quasar/wrappers';
+import type { Manager } from 'socket.io-client';
+import { SocketManager, type BootParams } from 'src/services/SocketManager';
 
-declare module "@vue/runtime-core" {
+declare module '@vue/runtime-core' {
   interface ComponentCustomProperties {
     $io: Manager;
   }
 }
 
-// create socket.io manager
+// create socket.io manager - centralne riadenie
 const io = SocketManager.createManager(process.env.API_URL);
 
 export default boot((params: BootParams) => {

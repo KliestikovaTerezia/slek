@@ -212,10 +212,10 @@ const doNotDisturb = computed({
 const notificationStore = useNotificationStore();
 void notificationStore.init();
 
-const notifications = computed(() => notificationStore.notifications);
+const notifications = computed(() => notificationStore.notifications); //zoznam sprav pre usera
 
 function dismissNotification(index: number) {
-  void notificationStore.dismiss(index);
+  void notificationStore.dismiss(index); //odstrani notifikaciu zo store
 }
 onMounted(async () => {
   void notificationStore.loadNotifications();
@@ -224,7 +224,7 @@ onMounted(async () => {
   if (!nickname) return;
 
   try {
-    await statusStore.fetchMyDnd(); // ulozi do statusStore.userDnds
+    await statusStore.fetchMyDnd();
 
     let general = ChannelService.in('general');
     if (!general) {
@@ -339,6 +339,7 @@ const uploadedAvatar = computed(() => {
 });
 const userProfile = computed(() => {
   if (!authStore.user)
+    //pre neprihlaseneho usera
     return {
       firstName: 'Guest',
       lastName: '',
