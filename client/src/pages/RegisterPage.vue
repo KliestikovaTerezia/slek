@@ -208,7 +208,18 @@ const handleFileUpload = (event: Event) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
-    uploadedAvatar.value = e.target?.result as string;
+    // zmensime obrazok, inak je request prilis velky (413)
+    const img = new Image();
+    img.onload = () => {
+      const AVATAR_SIZE = 256;
+      const scale = Math.min(1, AVATAR_SIZE / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      uploadedAvatar.value = canvas.toDataURL('image/jpeg', 0.85);
+    };
+    img.src = e.target?.result as string;
   };
   reader.readAsDataURL(file);
 };
