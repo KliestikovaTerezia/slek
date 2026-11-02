@@ -1,4 +1,4 @@
-# Slek
+# Shello
 
 Real-time chat app built for VPWA at FIIT STU.
 
@@ -30,7 +30,7 @@ The client talks to `http://localhost:3333` in dev. In production it uses the `A
 
 1. Create a Neon project and copy its connection string.
 2. In Render, choose **New → Blueprint** and pick this repo.
-3. Set `DATABASE_URL` (slek-server) to the Neon connection string.
-4. Set `API_URL` (slek-client) to the server's URL, e.g. `https://slek-server.onrender.com`.
+3. Set `DATABASE_URL` (shello-api) to the Neon connection string.
+4. Set `API_URL` (shello) to the server's URL, e.g. `https://shello-api.onrender.com`.
 
 Migrations run automatically each time the server starts. The free server sleeps after 15 minutes without traffic, so the first request after that takes about a minute.
