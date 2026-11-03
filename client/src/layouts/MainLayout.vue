@@ -136,7 +136,7 @@
               <q-btn
                 label="Enable notifications"
                 @click="askForNotificationPermission"
-                :disable="notificationPermission === 'granted'"
+                :disable="!NotificationService.isSupported || notificationPermission === 'granted'"
               />
             </q-item-section>
           </q-item>
@@ -360,11 +360,11 @@ const userProfile = computed(() => {
   };
 });
 
-const notificationPermission = ref(Notification.permission);
+const notificationPermission = ref(NotificationService.permission);
 
 const askForNotificationPermission = async () => {
   const granted = await NotificationService.requestPermission();
-  notificationPermission.value = Notification.permission;
+  notificationPermission.value = NotificationService.permission;
   if (!granted) {
     console.warn('Notifications not allowed by user');
   }

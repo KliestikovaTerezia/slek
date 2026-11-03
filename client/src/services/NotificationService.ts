@@ -13,9 +13,19 @@ class NotificationService {
   private permissionGranted = false;
   private statusStore = useStatusStore();
 
+  //iOS Safari nema Notification API (iba v appke pridanej na plochu)
+  get isSupported(): boolean {
+    return 'Notification' in window;
+  }
+
+  //aktualny stav povolenia, 'denied' ak browser notifikacie nepodporuje
+  get permission(): NotificationPermission {
+    return this.isSupported ? Notification.permission : 'denied';
+  }
+
   //poziada o povolenie na zobrazovanie notifikacii
   async requestPermission(): Promise<boolean> {
-    if (!('Notification' in window)) {
+    if (!this.isSupported) {
       console.warn('Browser nepodporuje notifikácie');
       return false;
     }
@@ -71,7 +81,7 @@ class NotificationService {
 
   //skontroluje ci ma povolenie na notifikacie
   get hasPermission(): boolean {
-    return this.permissionGranted || Notification.permission === 'granted';
+    return this.permissionGranted || this.permission === 'granted';
   }
 }
 
